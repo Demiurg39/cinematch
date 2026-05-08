@@ -7,8 +7,12 @@ import 'core/constants/app_constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load .env from project root
-  await dotenv.load();
+  // Load .env - optional, works in debug/desktop, skipped in web via CI env vars
+  try {
+    await dotenv.load();
+  } catch (_) {
+    // .env not found or already loaded via env vars - continue anyway
+  }
 
   // Initialize Supabase
   await Supabase.initialize(
