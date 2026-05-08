@@ -1,7 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_state.dart';
-import '../../domain/user_model.dart';
 
 part 'auth_provider.g.dart';
 
@@ -13,20 +12,8 @@ AuthRepository authRepository(AuthRepositoryRef ref) {
 @riverpod
 class AuthNotifier extends _$AuthNotifier {
   @override
-  Future<AuthState> build() async {
-    final repository = ref.read(authRepositoryProvider);
-
-    // Listen to auth state changes
-    ref.listen(authStateChangesProvider, (previous, next) {
-      // Handle auth state change
-    });
-
-    // Check current session
-    final user = await repository.getCurrentUser();
-    if (user != null) {
-      return AuthAuthenticated(user);
-    }
-    return const AuthUnauthenticated();
+  AsyncValue<AuthState> build() {
+    return const AsyncData(AuthUnauthenticated());
   }
 
   Future<void> signInWithEmail({
@@ -40,9 +27,9 @@ class AuthNotifier extends _$AuthNotifier {
         email: email,
         password: password,
       );
-      state = AuthAuthenticated(user);
-    } catch (e) {
-      state = AuthError(e.toString());
+      state = AsyncData(AuthAuthenticated(user));
+    } catch (e, st) {
+      state = AsyncError(e, st);
     }
   }
 
@@ -59,9 +46,9 @@ class AuthNotifier extends _$AuthNotifier {
         password: password,
         username: username,
       );
-      state = AuthAuthenticated(user);
-    } catch (e) {
-      state = AuthError(e.toString());
+      state = AsyncData(AuthAuthenticated(user));
+    } catch (e, st) {
+      state = AsyncError(e, st);
     }
   }
 
@@ -70,9 +57,8 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       final repository = ref.read(authRepositoryProvider);
       await repository.signInWithGoogle();
-      // Auth state will update via listener
-    } catch (e) {
-      state = AuthError(e.toString());
+    } catch (e, st) {
+      state = AsyncError(e, st);
     }
   }
 
@@ -81,14 +67,9 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       final repository = ref.read(authRepositoryProvider);
       await repository.signOut();
-      state = const AuthUnauthenticated();
-    } catch (e) {
-      state = AuthError(e.toString());
+      state = const AsyncData(AuthUnauthenticated());
+    } catch (e, st) {
+      state = AsyncError(e, st);
     }
   }
-}
-
-Stream<UserModel?> authStateChangesProvider(AuthStateChangesRef ref) {
-  final repository = ref.read(authRepositoryProvider);
-  return repository.authStateChanges();
 }

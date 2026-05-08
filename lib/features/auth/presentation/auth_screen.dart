@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
+import 'providers/auth_provider.dart';
 import 'widgets/auth_text_field.dart';
 import 'widgets/social_button.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -41,7 +41,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo/Title
                 Icon(
                   Icons.movie_filter,
                   size: 80,
@@ -57,8 +56,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
-
-                // Username field (sign up only)
                 if (_isSignUp) ...[
                   AuthTextField(
                     controller: _usernameController,
@@ -72,8 +69,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
-
-                // Email field
                 AuthTextField(
                   controller: _emailController,
                   hintText: 'Email',
@@ -89,8 +84,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-
-                // Password field
                 AuthTextField(
                   controller: _passwordController,
                   hintText: 'Password',
@@ -106,19 +99,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-
-                // Error display
-                if (authState.hasValue && authState.value is AuthError)
+                if (authState.hasError)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
-                      (authState.value as AuthError).message,
+                      authState.error.toString(),
                       style: const TextStyle(color: Colors.red),
                       textAlign: TextAlign.center,
                     ),
                   ),
-
-                // Submit button
                 ElevatedButton(
                   onPressed: authState.isLoading ? null : _onSubmit,
                   child: authState.isLoading
@@ -130,8 +119,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       : Text(_isSignUp ? 'Sign Up' : 'Sign In'),
                 ),
                 const SizedBox(height: 16),
-
-                // Toggle sign up/in
                 TextButton(
                   onPressed: () => setState(() => _isSignUp = !_isSignUp),
                   child: Text(
@@ -141,8 +128,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Divider
                 const Row(
                   children: [
                     Expanded(child: Divider(color: Colors.white24)),
@@ -154,8 +139,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Google sign in
                 SocialButton(
                   text: 'Continue with Google',
                   icon: Icons.g_mobiledata,
