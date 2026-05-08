@@ -7,8 +7,8 @@ import 'core/constants/app_constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load .env file
-  await dotenv.load(fileName: '.env');
+  // Load .env from project root
+  await dotenv.load();
 
   // Initialize Supabase
   await Supabase.initialize(
