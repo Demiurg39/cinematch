@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
@@ -20,5 +21,5 @@ Future<void> main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
-  runApp(const CinematchApp());
+  runApp(const ProviderScope(child: CinematchApp()));
 }
