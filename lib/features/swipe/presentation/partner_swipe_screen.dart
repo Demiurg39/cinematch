@@ -4,7 +4,6 @@ import 'widgets/swipe_card.dart';
 import 'widgets/swipe_indicators.dart';
 import 'widgets/movie_card_content.dart';
 import 'providers/swipe_provider.dart';
-import 'providers/match_provider.dart';
 import '../../partners/presentation/providers/active_partner_provider.dart';
 import '../domain/swipe_action.dart';
 

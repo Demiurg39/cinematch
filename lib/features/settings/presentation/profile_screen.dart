@@ -44,13 +44,13 @@ class ProfileScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.language),
                 title: const Text('Preferred Language'),
-                subtitle: Text(user.preferredLanguage ?? 'Not set'),
+                subtitle: Text(user.preferredLanguage),
                 onTap: () {},
               ),
               ListTile(
                 leading: const Icon(Icons.location_on),
                 title: const Text('Region'),
-                subtitle: Text(user.region ?? 'Not set'),
+                subtitle: Text(user.region),
                 onTap: () {},
               ),
               const SizedBox(height: 32),

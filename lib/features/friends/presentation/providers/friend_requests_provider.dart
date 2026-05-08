@@ -1,5 +1,4 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../data/friends_repository.dart';
 import '../../domain/friendship_model.dart';
 import 'friends_provider.dart';
 

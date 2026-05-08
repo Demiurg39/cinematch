@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/friends_provider.dart';
 import 'providers/friend_requests_provider.dart';
-import '../domain/friendship_model.dart';
 import 'add_friend_screen.dart';
 
 class FriendsScreen extends ConsumerWidget {

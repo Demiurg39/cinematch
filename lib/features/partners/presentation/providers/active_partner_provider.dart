@@ -1,5 +1,4 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../data/partners_repository.dart';
 import '../../domain/partner_model.dart';
 import 'partners_provider.dart';
 
