@@ -37,8 +37,92 @@ class RoomsScreen extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateRoomDialog(context, ref),
+        onPressed: () => _showOptionsDialog(context, ref),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showOptionsDialog(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Create Room'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCreateRoomDialog(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.login),
+              title: const Text('Join Room'),
+              onTap: () {
+                Navigator.pop(context);
+                _showJoinRoomDialog(context, ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showJoinRoomDialog(BuildContext context, WidgetRef ref) {
+    final codeController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Join Room'),
+        content: TextField(
+          controller: codeController,
+          decoration: const InputDecoration(
+            labelText: 'Room Code',
+            hintText: 'Enter 6-character code',
+          ),
+          textCapitalization: TextCapitalization.characters,
+          maxLength: 6,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final code = codeController.text.trim().toUpperCase();
+              if (code.length != 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Code must be 6 characters')),
+                );
+                return;
+              }
+              final repo = ref.read(roomsRepositoryProvider);
+              final room = await repo.getRoomByCode(code);
+              if (context.mounted) {
+                Navigator.pop(context);
+                if (room != null) {
+                  await repo.joinRoom(room.id);
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => RoomLobbyScreen(roomId: room.id)),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Room not found')),
+                  );
+                }
+              }
+            },
+            child: const Text('Join'),
+          ),
+        ],
       ),
     );
   }

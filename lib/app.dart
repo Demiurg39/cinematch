@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/auth_screen.dart';
 import 'features/auth/domain/auth_state.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/settings/presentation/providers/settings_provider.dart';
 import 'app/app_shell.dart';
 
 class CinematchApp extends ConsumerWidget {
@@ -11,13 +12,16 @@ class CinematchApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
+    final themeAsync = ref.watch(themeModeNotifierProvider);
+    final isDark = themeAsync.valueOrNull ?? true;
 
     return MaterialApp(
       title: 'Cinematch',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: authState.when(
+      darkTheme: AppTheme.darkTheme,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      home: ref.watch(authNotifierProvider).when(
         loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
