@@ -42,12 +42,18 @@
 
   claude.code = {
     enable = true;
-    mcpServers.devenv = {
-      type = "stdio";
-      command = "devenv";
-      args = ["mcp"];
-      env = {
-        DEVENV_ROOT = config.devenv.root;
+    mcpServers = {
+      devenv = {
+        type = "stdio";
+        command = "devenv";
+        args = ["mcp"];
+        env = {
+          DEVENV_ROOT = config.devenv.root;
+        };
+      };
+      supabase = {
+        type = "http";
+        url = "https://mcp.supabase.com/mcp?project_ref=${config.secretspec.secrets.SUPABASE_PROJECT_REF or ""}&features=docs%2Cdatabase%2Cdevelopment%2Cfunctions%2Cstorage";
       };
     };
   };
