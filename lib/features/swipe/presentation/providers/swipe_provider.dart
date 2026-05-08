@@ -1,7 +1,9 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../movies/domain/movie_model.dart';
 import '../../../movies/presentation/providers/movies_provider.dart';
 import '../../domain/swipe_action.dart';
+import 'match_provider.dart';
 
 part 'swipe_provider.g.dart';
 
@@ -16,7 +18,16 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     return repository.getPopularMovies();
   }
 
-  void onSwipe(SwipeAction action, MovieModel movie) {
+  Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      await ref.read(swipeRepositoryProvider).recordSwipe(
+            userId: userId,
+            movie: movie,
+            action: action,
+          );
+    }
+
     final currentDeck = state.valueOrNull ?? [];
     final updatedDeck = currentDeck.where((m) => m.id != movie.id).toList();
     state = AsyncData(updatedDeck);

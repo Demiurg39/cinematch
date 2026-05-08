@@ -6,7 +6,7 @@ part of 'swipe_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$swipeDeckNotifierHash() => r'21f4b6cf1852cd112b12d2ac955c79464694a4e4';
+String _$swipeDeckNotifierHash() => r'53635e89ebec502a70e7a4a15cec5c301f18be06';
 
 /// See also [SwipeDeckNotifier].
 @ProviderFor(SwipeDeckNotifier)
