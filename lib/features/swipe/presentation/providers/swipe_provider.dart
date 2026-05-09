@@ -13,9 +13,14 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
   Future<List<MovieModel>> build() async {
     final repository = ref.read(moviesRepositoryProvider);
     final cached = await repository.getCachedMovies(limit: 20);
-    if (cached.isNotEmpty) return cached;
+    if (cached.isNotEmpty) {
+      cached.shuffle();
+      return cached;
+    }
 
-    return repository.getPopularMovies();
+    final movies = await repository.getPopularMovies();
+    movies.shuffle();
+    return movies;
   }
 
   Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
@@ -30,13 +35,24 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
     final currentDeck = state.valueOrNull ?? [];
     final updatedDeck = currentDeck.where((m) => m.id != movie.id).toList();
-    state = AsyncData(updatedDeck);
+
+    // Load more if running low
+    if (updatedDeck.length < 5) {
+      final repository = ref.read(moviesRepositoryProvider);
+      final newMovies = await repository.getPopularMovies(page: (currentDeck.length ~/ 20) + 1);
+      newMovies.shuffle();
+      state = AsyncData([...updatedDeck, ...newMovies]);
+    } else {
+      state = AsyncData(updatedDeck);
+    }
   }
 
   Future<void> loadMore() async {
     final repository = ref.read(moviesRepositoryProvider);
     final currentDeck = state.valueOrNull ?? [];
-    final newMovies = await repository.getPopularMovies(page: 2);
+    final page = (currentDeck.length ~/ 20) + 1;
+    final newMovies = await repository.getPopularMovies(page: page);
+    newMovies.shuffle();
     state = AsyncData([...currentDeck, ...newMovies]);
   }
 }

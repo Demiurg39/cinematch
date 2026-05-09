@@ -90,9 +90,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onPressed: () async {
               final newUsername = controller.text.trim();
               if (newUsername.isNotEmpty && newUsername != currentUsername) {
-                final repo = AuthRepository();
-                await repo.updateUser(username: newUsername);
-                ref.invalidate(authNotifierProvider);
+                try {
+                  final repo = AuthRepository();
+                  await repo.updateUser(username: newUsername);
+                } catch (e) {
+                  // Ignore update errors - don't log out user
+                }
               }
               if (context.mounted) Navigator.pop(context);
             },
@@ -120,9 +123,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: Text(lang.toUpperCase()),
                 trailing: lang == currentLanguage ? const Icon(Icons.check) : null,
                 onTap: () async {
-                  final repo = AuthRepository();
-                  await repo.updateUser(preferredLanguage: lang);
-                  ref.invalidate(authNotifierProvider);
+                  try {
+                    final repo = AuthRepository();
+                    await repo.updateUser(preferredLanguage: lang);
+                  } catch (e) {
+                    // Ignore update errors
+                  }
                   if (context.mounted) Navigator.pop(context);
                 },
               );
@@ -150,9 +156,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: Text(region),
                 trailing: region == currentRegion ? const Icon(Icons.check) : null,
                 onTap: () async {
-                  final repo = AuthRepository();
-                  await repo.updateUser(region: region);
-                  ref.invalidate(authNotifierProvider);
+                  try {
+                    final repo = AuthRepository();
+                    await repo.updateUser(region: region);
+                  } catch (e) {
+                    // Ignore update errors
+                  }
                   if (context.mounted) Navigator.pop(context);
                 },
               );

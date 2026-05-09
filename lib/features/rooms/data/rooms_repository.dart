@@ -19,7 +19,7 @@ class RoomsRepository {
       'name': name,
       'created_by': userId,
       'status': 'lobby',
-      'match_threshold': matchThreshold,
+      'match_threshold': 'half',
     }).select().single();
 
     await _client.from('room_members').insert({
