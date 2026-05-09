@@ -78,12 +78,15 @@ class FriendsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddFriendScreen()),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          key: const ValueKey('add_friend_fab'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddFriendScreen()),
+          ),
+          child: const Icon(Icons.person_add),
         ),
-        child: const Icon(Icons.person_add),
       ),
     );
   }

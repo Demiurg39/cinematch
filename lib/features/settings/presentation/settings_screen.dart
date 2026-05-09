@@ -1,14 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'providers/settings_provider.dart';
 import 'profile_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  void _showComingSoonDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Coming Soon'),
+        content: const Text('This section is under construction.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsNotifierProvider);
     final isDarkAsync = ref.watch(themeModeNotifierProvider);
     final isDark = isDarkAsync.valueOrNull ?? true;
@@ -82,12 +97,12 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 title: const Text('Terms of Service'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => launchUrl(Uri.parse('https://cinematch.app/tos')),
+                onTap: () => _showComingSoonDialog(context),
               ),
               ListTile(
                 title: const Text('Privacy Policy'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => launchUrl(Uri.parse('https://cinematch.app/privacy')),
+                onTap: () => _showComingSoonDialog(context),
               ),
             ],
           );

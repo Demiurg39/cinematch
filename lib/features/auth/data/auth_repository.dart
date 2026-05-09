@@ -93,14 +93,22 @@ class AuthRepository {
     String? preferredLanguage,
     String? region,
   }) async {
-    final userId = _client.auth.currentUser!.id;
-    final updates = <String, dynamic>{};
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
 
+    final updates = <String, dynamic>{};
     if (username != null) updates['username'] = username;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
     if (preferredLanguage != null) updates['preferred_language'] = preferredLanguage;
     if (region != null) updates['region'] = region;
 
-    await _client.from('users').update(updates).eq('id', userId);
+    if (updates.isEmpty) return;
+
+    try {
+      await _client.from('users').update(updates).eq('id', userId);
+    } catch (e) {
+      // Silently fail - don't log out user for settings update failure
+      return;
+    }
   }
 }

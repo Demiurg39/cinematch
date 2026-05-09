@@ -15,15 +15,19 @@ class SwipeRepository {
   }) async {
     await _client.from('swipes').insert({
       'user_id': userId,
-      'tmdb_id': movie.tmdbId,
+      'movie_id': movie.id,
       'direction': action.name,
     });
   }
 
   Future<List<Map<String, dynamic>>> getSwipeActionsForMovie(int tmdbId) async {
+    // First find movie uuid by tmdb_id
+    final movie = await _client.from('movies').select('id').eq('tmdb_id', tmdbId).maybeSingle();
+    if (movie == null) return [];
+
     final result = await _client.from('swipes').select(
       'user_id',
-    ).eq('tmdb_id', tmdbId).eq('action', 'like');
+    ).eq('movie_id', movie['id']).eq('direction', 'like');
     return result;
   }
 
