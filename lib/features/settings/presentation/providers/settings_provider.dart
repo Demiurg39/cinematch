@@ -24,6 +24,19 @@ class SettingsNotifier extends _$SettingsNotifier {
     String? region,
     bool? darkMode,
   }) async {
+    // Optimistic update - update UI immediately before network call
+    final currentData = state.valueOrNull ?? {};
+    final updatedData = Map<String, dynamic>.from(currentData);
+    if (notificationsEnabled != null) updatedData['notifications_enabled'] = notificationsEnabled;
+    if (matchNotifications != null) updatedData['match_notifications'] = matchNotifications;
+    if (partnerNotifications != null) updatedData['partner_notifications'] = partnerNotifications;
+    if (friendNotifications != null) updatedData['friend_notifications'] = friendNotifications;
+    if (preferredLanguage != null) updatedData['preferred_language'] = preferredLanguage;
+    if (region != null) updatedData['region'] = region;
+    if (darkMode != null) updatedData['dark_mode'] = darkMode;
+    state = AsyncData(updatedData);
+
+    // Now persist to server
     await ref.read(settingsRepositoryProvider).updateUserSettings(
       notificationsEnabled: notificationsEnabled,
       matchNotifications: matchNotifications,
@@ -33,7 +46,6 @@ class SettingsNotifier extends _$SettingsNotifier {
       region: region,
       darkMode: darkMode,
     );
-    ref.invalidateSelf();
   }
 }
 
