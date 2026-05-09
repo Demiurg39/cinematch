@@ -16,108 +16,155 @@ class MovieCardContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Poster image
             if (movie.posterUrl != null)
               Image.network(
                 movie.posterUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: AppTheme.surfaceDark,
+                  color: AppColors.surfaceDark,
                   child: const Icon(Icons.movie, size: 80, color: Colors.white54),
                 ),
               )
             else
               Container(
-                color: AppTheme.surfaceDark,
+                color: AppColors.surfaceDark,
                 child: const Icon(Icons.movie, size: 80, color: Colors.white54),
               ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 200,
-              child: Container(
+
+            // Gradient overlay
+            Positioned.fill(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.8),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.black.withValues(alpha: 0.9),
                     ],
+                    stops: const [0.0, 0.4, 0.7, 1.0],
                   ),
                 ),
               ),
             ),
+
+            // Content
             if (showDetails)
               Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
+                bottom: 20,
+                left: 20,
+                right: 20,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Title
                     Text(
                       movie.title,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        height: 1.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+
+                    // Year and runtime
                     Row(
                       children: [
-                        if (movie.year != null)
-                          Text(
-                            '${movie.year}',
-                            style: const TextStyle(color: Colors.white70),
+                        if (movie.year != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${movie.year}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
+                        ],
                         if (movie.runtime != null) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            '${movie.runtime} min',
-                            style: const TextStyle(color: Colors.white70),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${movie.runtime} min',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ],
                       ],
                     ),
+
+                    // Genres
                     if (movie.genres.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: movie.genres.take(3).map((genre) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: 12,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryPink.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryPink.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                ),
+                              ],
                             ),
                             child: Text(
                               genre,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           );

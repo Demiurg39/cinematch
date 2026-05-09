@@ -10,5 +10,10 @@ void main() {
       expect(SwipeAction.maybe.name, 'maybe');
       expect(SwipeAction.veto.name, 'veto');
     });
+
+    test('all values are unique', () {
+      final names = SwipeAction.values.map((e) => e.name).toSet();
+      expect(names.length, SwipeAction.values.length);
+    });
   });
 }

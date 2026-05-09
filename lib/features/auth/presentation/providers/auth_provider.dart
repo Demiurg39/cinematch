@@ -16,6 +16,12 @@ class AuthNotifier extends _$AuthNotifier {
     return const AsyncData(AuthUnauthenticated());
   }
 
+  void resetError() {
+    if (state.hasError) {
+      state = const AsyncData(AuthUnauthenticated());
+    }
+  }
+
   Future<void> signInWithEmail({
     required String email,
     required String password,

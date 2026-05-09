@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../constants/app_constants.dart';
 import 'tmdb_endpoints.dart';
 
@@ -7,7 +6,7 @@ class TmdbApiClient {
   TmdbApiClient({Dio? dio}) : _dio = dio ?? Dio() {
     _dio.options.baseUrl = 'https://api.themoviedb.org/3';
     _dio.options.queryParameters = {
-      'api_key': dotenv.env['TMDB_API_KEY'] ?? AppConstants.tmdbApiKey,
+      'api_key': AppConstants.tmdbApiKey,
     };
   }
 

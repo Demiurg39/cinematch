@@ -228,6 +228,7 @@ ALTER TABLE public.user_cluster_assignments ENABLE ROW LEVEL SECURITY;
 
 -- Users: public read, own write
 CREATE POLICY "Users are viewable by everyone" ON public.users FOR SELECT USING (true);
+CREATE POLICY "Users can insert own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 
 -- Movies: public read

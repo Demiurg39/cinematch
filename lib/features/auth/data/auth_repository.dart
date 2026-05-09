@@ -40,7 +40,17 @@ class AuthRepository {
     );
 
     final userId = response.user!.id;
-    final userResponse = await _client.from('users').select().eq('id', userId).single();
+    var userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
+
+    // Auto-create profile if missing (handles manually-created auth users)
+    if (userResponse == null) {
+      await _client.from('users').insert({'id': userId, 'username': email.split('@').first});
+      userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
+    }
+
+    if (userResponse == null) {
+      throw Exception('Failed to create or retrieve user profile');
+    }
 
     return UserModel.fromJson(userResponse);
   }
@@ -60,7 +70,11 @@ class AuthRepository {
     // Create user profile
     await _client.from('users').insert({'id': userId, 'username': username});
 
-    final userResponse = await _client.from('users').select().eq('id', userId).single();
+    final userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
+
+    if (userResponse == null) {
+      throw Exception('Failed to create user profile');
+    }
 
     return UserModel.fromJson(userResponse);
   }
