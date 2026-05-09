@@ -4,7 +4,9 @@
   config,
   inputs,
   ...
-}: {
+}: let
+  project_ref = config.secretspec.secrets.SUPABASE_PROJECT_REF;
+in {
   # https://devenv.sh/basics/
   env.QT_QPA_PLATFORM = "xcb";
 
@@ -12,7 +14,9 @@
   packages = with pkgs; [
     git
     claude-code
-    nodejs-slim
+    nodejs
+    chromium
+    secretspec
   ];
 
   android = {
@@ -53,7 +57,21 @@
       };
       supabase = {
         type = "http";
-        url = "https://mcp.supabase.com/mcp?project_ref=${config.secretspec.secrets.SUPABASE_PROJECT_REF or ""}&features=docs%2Cdatabase%2Cdevelopment%2Cfunctions%2Cstorage";
+        url = "https://mcp.supabase.com/mcp?project_ref=${project_ref}&features=docs%2Cdatabase%2Cdevelopment%2Cstorage";
+      };
+      dart = {
+        type = "stdio";
+        command = "dart";
+        args = ["mcp-server"];
+      };
+      browsermcp = {
+        type = "stdio";
+        command = "npx";
+        args = [
+          "-y" # Automatically accept package installation
+          "@browsermcp/mcp@latest"
+        ];
+        env.CHROME_PATH = "${pkgs.chromium}/bin/chromium";
       };
     };
   };
