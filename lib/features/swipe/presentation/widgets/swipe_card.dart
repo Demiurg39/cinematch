@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
 enum SwipeDirection { left, right, up, down }
 
@@ -18,27 +17,33 @@ class SwipeCard extends StatefulWidget {
     this.onSwipeRight,
     this.onSwipeUp,
     this.onSwipeDown,
-    this.threshold = 100,
+    this.threshold = 80,
   });
 
   @override
   State<SwipeCard> createState() => _SwipeCardState();
 }
 
-class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMixin {
+class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
   late AnimationController _animController;
+  late AnimationController _overlayController;
   late Animation<Offset> _offsetAnimation;
   late Animation<double> _rotationAnimation;
+  late Animation<double> _overlayAnimation;
   Offset _dragPosition = Offset.zero;
-  Offset _dragVelocity = Offset.zero;
   bool _isAnimating = false;
+  SwipeDirection? _currentDirection;
 
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 180),
+    );
+    _overlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
     );
     _offsetAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOut),
@@ -46,11 +51,15 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     _rotationAnimation = Tween<double>(begin: 0, end: 0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
+    _overlayAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _overlayController, curve: Curves.easeOut),
+    );
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _overlayController.dispose();
     super.dispose();
   }
 
@@ -64,8 +73,12 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     _rotationAnimation = Tween<double>(begin: startRotation, end: 0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
+    _overlayAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _overlayController, curve: Curves.easeOut),
+    );
 
     _isAnimating = true;
+    _currentDirection = null;
     _animController.forward(from: 0).then((_) {
       if (mounted) {
         setState(() {
@@ -74,6 +87,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
         });
       }
     });
+    _overlayController.forward(from: 0);
   }
 
   SwipeDirection? _getSwipeDirection() {
@@ -89,24 +103,22 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     }
   }
 
-  Color _getOverlayColor() {
-    final direction = _getSwipeDirection();
+  Color _getColorForDirection(SwipeDirection? direction) {
     switch (direction) {
       case SwipeDirection.right:
-        return Colors.green.withValues(alpha: math.min(_dragPosition.dx / 300, 0.8));
+        return Colors.green.withValues(alpha: 0.75);
       case SwipeDirection.left:
-        return Colors.red.withValues(alpha: math.min(_dragPosition.dx.abs() / 300, 0.8));
+        return Colors.red.withValues(alpha: 0.75);
       case SwipeDirection.up:
-        return Colors.orange.withValues(alpha: math.min(_dragPosition.dy.abs() / 300, 0.8));
+        return Colors.orange.withValues(alpha: 0.75);
       case SwipeDirection.down:
-        return Colors.blue.withValues(alpha: math.min(_dragPosition.dy / 300, 0.8));
+        return Colors.blue.withValues(alpha: 0.75);
       default:
         return Colors.transparent;
     }
   }
 
-  IconData? _getOverlayIcon() {
-    final direction = _getSwipeDirection();
+  IconData? _getIconForDirection(SwipeDirection? direction) {
     switch (direction) {
       case SwipeDirection.right:
         return Icons.thumb_up;
@@ -116,7 +128,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
         return Icons.block;
       case SwipeDirection.down:
         return Icons.schedule;
-      default:
+      case null:
         return null;
     }
   }
@@ -125,7 +137,10 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
   Widget build(BuildContext context) {
     return GestureDetector(
       onPanStart: (_) {
-        if (_isAnimating) _animController.stop();
+        if (_isAnimating) {
+          _animController.stop();
+          _overlayController.stop();
+        }
       },
       onPanUpdate: (details) {
         setState(() {
@@ -133,15 +148,16 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
         });
       },
       onPanEnd: (details) {
-        _dragVelocity = details.velocity.pixelsPerSecond;
-
+        final velocity = details.velocity.pixelsPerSecond;
         final direction = _getSwipeDirection();
+
         if (direction != null) {
           final distance = direction == SwipeDirection.right || direction == SwipeDirection.left
               ? _dragPosition.dx.abs()
               : _dragPosition.dy.abs();
 
-          if (distance > widget.threshold || _dragVelocity.distance > 500) {
+          if (distance > widget.threshold || velocity.distance > 800) {
+            _currentDirection = direction;
             switch (direction) {
               case SwipeDirection.right:
                 widget.onSwipeRight?.call();
@@ -158,6 +174,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
             }
             setState(() {
               _dragPosition = Offset.zero;
+              _currentDirection = null;
             });
             return;
           }
@@ -173,7 +190,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
 
           return Transform(
             transform: Matrix4.identity()
-              ..translate(offset.dx, offset.dy)
+              ..setTranslationRaw(offset.dx, offset.dy, 0)
               ..rotateZ(rotation),
             alignment: Alignment.center,
             child: child,
@@ -182,20 +199,28 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
         child: Stack(
           children: [
             widget.child,
-            if (_getSwipeDirection() != null)
+            if (_currentDirection != null)
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _getOverlayColor(),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _getOverlayIcon(),
-                      size: 80,
-                      color: Colors.white,
-                    ),
-                  ),
+                child: AnimatedBuilder(
+                  animation: _overlayController,
+                  builder: (context, _) {
+                    return Opacity(
+                      opacity: _overlayAnimation.value,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _getColorForDirection(_currentDirection),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            _getIconForDirection(_currentDirection),
+                            size: 80,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
           ],

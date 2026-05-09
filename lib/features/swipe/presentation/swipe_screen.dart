@@ -47,8 +47,8 @@ class _LoadingState extends StatelessWidget {
               gradient: AppColors.primaryGradient,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryPink.withValues(alpha: 0.3),
-                  blurRadius: 20,
+                  color: AppColors.primaryPink.withValues(alpha: 0.4),
+                  blurRadius: 24,
                 ),
               ],
             ),
@@ -186,24 +186,31 @@ class _SwipeDeck extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        // Header
+        // Header with logo and count
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
           child: Row(
             children: [
-              RichText(
-                text: const TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'CINEMATCH',
-                      style: TextStyle(
-                        color: AppColors.primaryPink,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4,
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'CINEMATCH',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 4,
                 ),
               ),
               const Spacer(),
@@ -212,14 +219,32 @@ class _SwipeDeck extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDark,
                   borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${movies.length} left',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  border: Border.all(
+                    color: AppColors.primaryPink.withValues(alpha: 0.3),
+                    width: 1,
                   ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryPink,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${movies.length} left',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -243,7 +268,7 @@ class _SwipeDeck extends ConsumerWidget {
                     child: Transform.scale(
                       scale: 0.94,
                       child: Opacity(
-                        opacity: 0.6,
+                        opacity: 0.5,
                         child: MovieCardContent(
                           movie: movies[1],
                           showDetails: false,

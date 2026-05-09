@@ -103,10 +103,28 @@ class FriendsRepository {
   Stream<List<FriendshipModel>> watchFriends() {
     final userId = currentUserId!;
     return _client.from('friendships').stream(primaryKey: ['id'])
-        .map((data) => data
-            .where((json) => json['user_id'] == userId || json['friend_id'] == userId)
-            .where((json) => json['status'] == 'accepted')
-            .map((json) => FriendshipModel.fromJson({...json, 'current_user_id': userId}))
-            .toList());
+        .asyncMap((data) async {
+          final friendsData = data
+              .where((json) => json['user_id'] == userId || json['friend_id'] == userId)
+              .where((json) => json['status'] == 'accepted')
+              .toList();
+
+          final result = <FriendshipModel>[];
+          for (final json in friendsData) {
+            final friendId = friendIdKey(json, userId);
+            String friendUsername = 'Unknown';
+            try {
+              final user = await _client.from('users').select('username').eq('id', friendId).maybeSingle();
+              friendUsername = (user?['username'] as String?) ?? 'Unknown';
+            } catch (_) {}
+
+            result.add(FriendshipModel.fromJson({
+              ...json,
+              'current_user_id': userId,
+              'friend_username': friendUsername,
+            }));
+          }
+          return result;
+        });
   }
 }

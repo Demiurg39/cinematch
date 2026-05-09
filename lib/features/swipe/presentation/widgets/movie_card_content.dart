@@ -19,9 +19,9 @@ class MovieCardContent extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
@@ -30,19 +30,18 @@ class MovieCardContent extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Poster image - use larger w780 size for better quality
+            // Poster image - use w1280 for full screen quality
             if (movie.posterUrl != null)
               Image.network(
-                movie.posterUrl!.replaceAll('/w500/', '/w780/'),
+                movie.posterUrl!.replaceAll('/w500/', '/w1280/'),
                 fit: BoxFit.cover,
-                cacheWidth: 800,
+                cacheWidth: 1280,
+                gaplessPlayback: true,
                 loadingBuilder: (_, child, loadingProgress) {
                   if (loadingProgress == null) return child;
-                  return Container(
-                    color: AppColors.surfaceDark,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                  return _ShimmerPlaceholder(
+                    progress: loadingProgress.cumulativeBytesLoaded /
+                        (loadingProgress.expectedTotalBytes ?? 1),
                   );
                 },
                 errorBuilder: (_, __, ___) => Container(
@@ -186,6 +185,63 @@ class MovieCardContent extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ShimmerPlaceholder extends StatefulWidget {
+  final double progress;
+  const _ShimmerPlaceholder({required this.progress});
+
+  @override
+  State<_ShimmerPlaceholder> createState() => _ShimmerPlaceholderState();
+}
+
+class _ShimmerPlaceholderState extends State<_ShimmerPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceDark,
+      child: AnimatedBuilder(
+        animation: _shimmerController,
+        builder: (context, _) {
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                begin: Alignment(-1 + 2 * _shimmerController.value, 0),
+                end: Alignment(-0.5 + 2 * _shimmerController.value, 0),
+                colors: const [
+                  AppColors.surfaceDark,
+                  Color(0xFF2A2A3E),
+                  AppColors.surfaceDark,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ).createShader(bounds);
+            },
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.1),
+            ),
+          );
+        },
       ),
     );
   }

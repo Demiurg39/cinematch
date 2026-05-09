@@ -54,7 +54,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.swipe,
+                  icon: Icons.swipe_rounded,
                   label: 'Swipe',
                   isSelected: _currentIndex == 0,
                   onTap: () => setState(() => _currentIndex = 0),
@@ -66,7 +66,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onTap: () => setState(() => _currentIndex = 1),
                 ),
                 _NavItem(
-                  icon: Icons.people_outline,
+                  icon: Icons.people_outline_rounded,
                   label: 'Friends',
                   isSelected: _currentIndex == 2,
                   onTap: () => setState(() => _currentIndex = 2),

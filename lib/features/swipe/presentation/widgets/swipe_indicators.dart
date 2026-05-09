@@ -5,38 +5,83 @@ class SwipeIndicators extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 32),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            children: [
-              Icon(Icons.thumb_down, color: Colors.red, size: 24),
-              SizedBox(height: 4),
-              Text('Dislike', style: TextStyle(color: Colors.red, fontSize: 12)),
-            ],
+          _IndicatorItem(
+            icon: Icons.thumb_down_rounded,
+            label: 'Dislike',
+            color: Colors.red.shade400,
+            onTap: () {},
           ),
-          Column(
-            children: [
-              Icon(Icons.schedule, color: Colors.blue, size: 24),
-              SizedBox(height: 4),
-              Text('Maybe', style: TextStyle(color: Colors.blue, fontSize: 12)),
-            ],
+          _IndicatorItem(
+            icon: Icons.schedule_rounded,
+            label: 'Maybe',
+            color: Colors.blue.shade400,
+            onTap: () {},
           ),
-          Column(
-            children: [
-              Icon(Icons.block, color: Colors.orange, size: 24),
-              SizedBox(height: 4),
-              Text('Veto', style: TextStyle(color: Colors.orange, fontSize: 12)),
-            ],
+          _IndicatorItem(
+            icon: Icons.block_rounded,
+            label: 'Veto',
+            color: Colors.orange.shade400,
+            onTap: () {},
           ),
-          Column(
-            children: [
-              Icon(Icons.thumb_up, color: Colors.green, size: 24),
-              SizedBox(height: 4),
-              Text('Like', style: TextStyle(color: Colors.green, fontSize: 12)),
-            ],
+          _IndicatorItem(
+            icon: Icons.thumb_up_rounded,
+            label: 'Like',
+            color: Colors.green.shade400,
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IndicatorItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _IndicatorItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
