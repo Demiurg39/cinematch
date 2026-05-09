@@ -13,7 +13,7 @@ class SwipeRepository {
     required MovieModel movie,
     required SwipeAction action,
   }) async {
-    await _client.from('swipe_actions').insert({
+    await _client.from('swipes').insert({
       'user_id': userId,
       'tmdb_id': movie.tmdbId,
       'action': action.name,
@@ -21,7 +21,7 @@ class SwipeRepository {
   }
 
   Future<List<Map<String, dynamic>>> getSwipeActionsForMovie(int tmdbId) async {
-    final result = await _client.from('swipe_actions').select(
+    final result = await _client.from('swipes').select(
       'user_id',
     ).eq('tmdb_id', tmdbId).eq('action', 'like');
     return result;

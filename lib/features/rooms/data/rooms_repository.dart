@@ -22,7 +22,7 @@ class RoomsRepository {
       'match_threshold': matchThreshold,
     }).select().single();
 
-    await _client.from('room_participants').insert({
+    await _client.from('room_members').insert({
       'room_id': response['id'],
       'user_id': userId,
     });
@@ -37,7 +37,7 @@ class RoomsRepository {
   }
 
   Future<void> joinRoom(String roomId) async {
-    await _client.from('room_participants').insert({
+    await _client.from('room_members').insert({
       'room_id': roomId,
       'user_id': currentUserId,
     });
@@ -46,13 +46,22 @@ class RoomsRepository {
   Future<void> leaveRoom(String roomId) async {
     final uid = currentUserId;
     if (uid == null) return;
-    await _client.from('room_participants').delete()
+    await _client.from('room_members').delete()
         .eq('room_id', roomId).eq('user_id', uid);
   }
 
   Future<List<RoomModel>> getMyRooms() async {
     final userId = currentUserId!;
-    final response = await _client.from('rooms').select().contains('participant_ids', [userId]);
+    // Get rooms through room_members junction table
+    final roomIds = await _client.from('room_members')
+        .select('room_id')
+        .eq('user_id', userId);
+
+    if (roomIds.isEmpty) return [];
+
+    final roomIdList = roomIds.map((r) => r['room_id'] as String).toList();
+    final allRooms = await _client.from('rooms').select();
+    final response = allRooms.where((json) => roomIdList.contains(json['id'] as String)).toList();
     return response.map((json) => RoomModel.fromJson(json)).toList();
   }
 
