@@ -26,23 +26,54 @@ class SwipeCard extends StatefulWidget {
 }
 
 class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _animController;
+  late Animation<Offset> _offsetAnimation;
+  late Animation<double> _rotationAnimation;
   Offset _dragPosition = Offset.zero;
   Offset _dragVelocity = Offset.zero;
+  bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
+    );
+    _offsetAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+    );
+    _rotationAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animController.dispose();
     super.dispose();
+  }
+
+  void _runResetAnimation() {
+    final startOffset = _dragPosition;
+    final startRotation = _dragPosition.dx / 500;
+
+    _offsetAnimation = Tween<Offset>(begin: startOffset, end: Offset.zero).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+    );
+    _rotationAnimation = Tween<double>(begin: startRotation, end: 0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+    );
+
+    _isAnimating = true;
+    _animController.forward(from: 0).then((_) {
+      if (mounted) {
+        setState(() {
+          _isAnimating = false;
+          _dragPosition = Offset.zero;
+        });
+      }
+    });
   }
 
   SwipeDirection? _getSwipeDirection() {
@@ -62,13 +93,13 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     final direction = _getSwipeDirection();
     switch (direction) {
       case SwipeDirection.right:
-        return Colors.green.withOpacity(math.min(_dragPosition.dx / 300, 0.8));
+        return Colors.green.withValues(alpha: math.min(_dragPosition.dx / 300, 0.8));
       case SwipeDirection.left:
-        return Colors.red.withOpacity(math.min(_dragPosition.dx.abs() / 300, 0.8));
+        return Colors.red.withValues(alpha: math.min(_dragPosition.dx.abs() / 300, 0.8));
       case SwipeDirection.up:
-        return Colors.orange.withOpacity(math.min(_dragPosition.dy.abs() / 300, 0.8));
+        return Colors.orange.withValues(alpha: math.min(_dragPosition.dy.abs() / 300, 0.8));
       case SwipeDirection.down:
-        return Colors.blue.withOpacity(math.min(_dragPosition.dy / 300, 0.8));
+        return Colors.blue.withValues(alpha: math.min(_dragPosition.dy / 300, 0.8));
       default:
         return Colors.transparent;
     }
@@ -93,7 +124,9 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onPanStart: (_) => _controller.stop(),
+      onPanStart: (_) {
+        if (_isAnimating) _animController.stop();
+      },
       onPanUpdate: (details) {
         setState(() {
           _dragPosition += details.delta;
@@ -123,18 +156,29 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
                 widget.onSwipeDown?.call();
                 break;
             }
+            setState(() {
+              _dragPosition = Offset.zero;
+            });
+            return;
           }
         }
 
-        setState(() {
-          _dragPosition = Offset.zero;
-        });
+        _runResetAnimation();
       },
-      child: Transform(
-        transform: Matrix4.identity()
-          ..translate(_dragPosition.dx, _dragPosition.dy)
-          ..rotateZ(_dragPosition.dx / 500),
-        alignment: Alignment.center,
+      child: AnimatedBuilder(
+        animation: _animController,
+        builder: (context, child) {
+          final offset = _isAnimating ? _offsetAnimation.value : _dragPosition;
+          final rotation = _isAnimating ? _rotationAnimation.value : _dragPosition.dx / 500;
+
+          return Transform(
+            transform: Matrix4.identity()
+              ..translate(offset.dx, offset.dy)
+              ..rotateZ(rotation),
+            alignment: Alignment.center,
+            child: child,
+          );
+        },
         child: Stack(
           children: [
             widget.child,

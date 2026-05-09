@@ -80,7 +80,7 @@ class FriendsScreen extends ConsumerWidget {
       ),
       floatingActionButton: Builder(
         builder: (context) => FloatingActionButton(
-          key: const ValueKey('add_friend_fab'),
+          heroTag: 'friends_add_fab',
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AddFriendScreen()),

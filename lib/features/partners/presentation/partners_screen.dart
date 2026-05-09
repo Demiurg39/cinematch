@@ -37,12 +37,15 @@ class PartnersScreen extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddPartnerScreen()),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          heroTag: 'partners_add_fab',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddPartnerScreen()),
+          ),
+          child: const Icon(Icons.person_add),
         ),
-        child: const Icon(Icons.person_add),
       ),
     );
   }

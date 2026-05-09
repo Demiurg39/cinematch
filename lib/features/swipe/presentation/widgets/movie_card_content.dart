@@ -30,11 +30,21 @@ class MovieCardContent extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Poster image
+            // Poster image - use larger w780 size for better quality
             if (movie.posterUrl != null)
               Image.network(
-                movie.posterUrl!,
+                movie.posterUrl!.replaceAll('/w500/', '/w780/'),
                 fit: BoxFit.cover,
+                cacheWidth: 800,
+                loadingBuilder: (_, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: AppColors.surfaceDark,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (_, __, ___) => Container(
                   color: AppColors.surfaceDark,
                   child: const Icon(Icons.movie, size: 80, color: Colors.white54),
