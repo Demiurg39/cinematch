@@ -20,7 +20,7 @@ class CinematchApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: ThemeMode.dark,
       home: ref.watch(authNotifierProvider).when(
         loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
