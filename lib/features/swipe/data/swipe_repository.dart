@@ -16,7 +16,7 @@ class SwipeRepository {
     await _client.from('swipes').insert({
       'user_id': userId,
       'tmdb_id': movie.tmdbId,
-      'action': action.name,
+      'direction': action.name,
     });
   }
 

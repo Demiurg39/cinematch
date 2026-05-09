@@ -36,9 +36,12 @@ class RoomsScreen extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showOptionsDialog(context, ref),
-        child: const Icon(Icons.add),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          key: const ValueKey('create_room_fab'),
+          onPressed: () => _showOptionsDialog(context, ref),
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'providers/settings_provider.dart';
 import 'profile_screen.dart';
 
@@ -81,12 +82,12 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 title: const Text('Terms of Service'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
+                onTap: () => launchUrl(Uri.parse('https://cinematch.app/tos')),
               ),
               ListTile(
                 title: const Text('Privacy Policy'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
+                onTap: () => launchUrl(Uri.parse('https://cinematch.app/privacy')),
               ),
             ],
           );
