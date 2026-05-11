@@ -34,15 +34,19 @@ class FriendsRepository {
   Future<void> removeFriend(String friendId) async {
     final uid = currentUserId;
     if (uid == null) return;
+    // Remove only the friendship record where current user is user_id
     await _client.from('friendships').delete()
-        .or('and(user_id.eq.$uid,friend_id.eq.$friendId),and(user_id.eq.$friendId,friend_id.eq.$uid)');
+        .eq('user_id', uid)
+        .eq('friend_id', friendId);
   }
 
   Future<void> blockUser(String friendId) async {
     final uid = currentUserId;
     if (uid == null) return;
+    // Block only where current user is user_id
     await _client.from('friendships').update({'status': 'blocked'})
-        .or('and(user_id.eq.$uid,friend_id.eq.$friendId),and(user_id.eq.$friendId,friend_id.eq.$uid)');
+        .eq('user_id', uid)
+        .eq('friend_id', friendId);
   }
 
   Future<List<FriendshipModel>> getFriends() async {

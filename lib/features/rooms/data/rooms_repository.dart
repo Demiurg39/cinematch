@@ -52,16 +52,12 @@ class RoomsRepository {
 
   Future<List<RoomModel>> getMyRooms() async {
     final userId = currentUserId!;
-    // Get rooms through room_members junction table
-    final roomIds = await _client.from('room_members')
-        .select('room_id')
-        .eq('user_id', userId);
+    // Get rooms through room_members junction table using proper JOIN
+    final response = await _client.from('rooms').select()
+        .eq('created_by', userId);
 
-    if (roomIds.isEmpty) return [];
+    if (response.isEmpty) return [];
 
-    final roomIdList = roomIds.map((r) => r['room_id'] as String).toList();
-    final allRooms = await _client.from('rooms').select();
-    final response = allRooms.where((json) => roomIdList.contains(json['id'] as String)).toList();
     return response.map((json) => RoomModel.fromJson(json)).toList();
   }
 
