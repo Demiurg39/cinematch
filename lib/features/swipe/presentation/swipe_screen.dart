@@ -4,7 +4,9 @@ import 'providers/swipe_provider.dart';
 import 'widgets/swipe_card.dart';
 import 'widgets/swipe_indicators.dart';
 import 'widgets/movie_card_content.dart';
+import 'widgets/match_celebration.dart';
 import '../../movies/domain/movie_model.dart';
+import '../../movies/presentation/movie_detail_screen.dart';
 import '../../swipe/domain/swipe_action.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -269,9 +271,12 @@ class _SwipeDeck extends ConsumerWidget {
                       scale: 0.94,
                       child: Opacity(
                         opacity: 0.5,
-                        child: MovieCardContent(
-                          movie: movies[1],
-                          showDetails: false,
+                        child: GestureDetector(
+                          onTap: () => _openDetail(context, movies[1]),
+                          child: MovieCardContent(
+                            movie: movies[1],
+                            showDetails: false,
+                          ),
                         ),
                       ),
                     ),
@@ -279,12 +284,15 @@ class _SwipeDeck extends ConsumerWidget {
 
                 // Top card (swipeable)
                 Positioned.fill(
-                  child: SwipeCard(
-                    onSwipeRight: () => _onSwipe(ref, movies[0], SwipeAction.like),
-                    onSwipeLeft: () => _onSwipe(ref, movies[0], SwipeAction.dislike),
-                    onSwipeUp: () => _onSwipe(ref, movies[0], SwipeAction.veto),
-                    onSwipeDown: () => _onSwipe(ref, movies[0], SwipeAction.maybe),
-                    child: MovieCardContent(movie: movies[0]),
+                  child: GestureDetector(
+                    onTap: () => _openDetail(context, movies[0]),
+                    child: SwipeCard(
+                      onSwipeRight: () => _onSwipe(context, ref, movies[0], SwipeAction.like),
+                      onSwipeLeft: () => _onSwipe(context, ref, movies[0], SwipeAction.dislike),
+                      onSwipeUp: () => _onSwipe(context, ref, movies[0], SwipeAction.veto),
+                      onSwipeDown: () => _onSwipe(context, ref, movies[0], SwipeAction.maybe),
+                      child: MovieCardContent(movie: movies[0]),
+                    ),
                   ),
                 ),
               ],
@@ -301,7 +309,21 @@ class _SwipeDeck extends ConsumerWidget {
     );
   }
 
-  void _onSwipe(WidgetRef ref, MovieModel movie, SwipeAction action) {
+  void _openDetail(BuildContext context, MovieModel movie) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MovieDetailScreen(movie: movie),
+      ),
+    );
+  }
+
+  void _onSwipe(BuildContext context, WidgetRef ref, MovieModel movie, SwipeAction action) {
+    // Show match celebration on like (simulating match for demo)
+    if (action == SwipeAction.like) {
+      showMatchCelebration(context, movie);
+    }
+
     ref.read(swipeDeckNotifierProvider.notifier).onSwipe(action, movie);
   }
 }

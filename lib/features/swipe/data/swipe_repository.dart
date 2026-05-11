@@ -13,9 +13,18 @@ class SwipeRepository {
     required MovieModel movie,
     required SwipeAction action,
   }) async {
+    // If movie.id is empty (from TMDB), lookup by tmdbId first
+    String? movieDbId = movie.id.isEmpty ? null : movie.id;
+    if (movieDbId == null) {
+      final cached = await _client.from('movies').select('id').eq('tmdb_id', movie.tmdbId).maybeSingle();
+      movieDbId = cached?['id'] as String?;
+    }
+
+    if (movieDbId == null) return; // Can't record swipe without valid movie
+
     await _client.from('swipes').insert({
       'user_id': userId,
-      'movie_id': movie.id,
+      'movie_id': movieDbId,
       'direction': action.name,
     });
   }
