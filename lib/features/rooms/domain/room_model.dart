@@ -1,4 +1,4 @@
-enum RoomStatus { lobby, voting, matched, revealed }
+enum RoomStatus { lobby, active, voting, matched, revealed, archived, completed }
 
 class RoomModel {
   final String id;
@@ -31,7 +31,7 @@ class RoomModel {
         (e) => e.name == json['status'],
         orElse: () => RoomStatus.lobby,
       ),
-      matchThreshold: json['match_threshold'] as int? ?? 2,
+      matchThreshold: _parseThreshold(json['match_threshold']),
       createdAt: DateTime.parse(json['created_at'] as String),
       participantIds: (json['participant_ids'] as List<dynamic>?)
           ?.map((e) => e as String)
@@ -48,4 +48,19 @@ class RoomModel {
         'match_threshold': matchThreshold,
         'created_at': createdAt.toIso8601String(),
       };
+
+  static int _parseThreshold(dynamic value) {
+    if (value == null) return 2;
+    if (value is int) return value;
+    if (value is String) {
+      switch (value) {
+        case 'unanimous': return 4;
+        case 'majority': return 3;
+        case 'half': return 2;
+        case 'matched': return 1;
+        default: return int.tryParse(value) ?? 2;
+      }
+    }
+    return 2;
+  }
 }

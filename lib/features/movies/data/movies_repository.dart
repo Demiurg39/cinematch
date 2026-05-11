@@ -21,7 +21,13 @@ class MoviesRepository {
       movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>));
     }
 
-    // Skip caching to avoid RLS issues during swiping - movies come from TMDB anyway
+    // Cache movies - wrap in try-catch to handle RLS during heavy swiping
+    try {
+      await _cacheMovies(movies);
+    } catch (_) {
+      // Silently ignore caching errors - movies still returned from TMDB
+    }
+
     return movies;
   }
 
