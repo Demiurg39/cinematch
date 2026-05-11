@@ -60,22 +60,20 @@ class MoviesRepository {
   }
 
   Future<void> _cacheMovies(List<MovieModel> movies) async {
-    for (final movie in movies) {
-      await _supabase.from('movies').upsert(
-        {
-          'tmdb_id': movie.tmdbId,
-          'title': movie.title,
-          'year': movie.year,
-          'poster_url': movie.posterUrl,
-          'genres': movie.genres,
-          'popularity': movie.popularity,
-          'runtime': movie.runtime,
-          'cached_at': DateTime.now().toIso8601String(),
-          'last_synced_at': DateTime.now().toIso8601String(),
-        },
-        onConflict: 'tmdb_id',
-      );
-    }
+    if (movies.isEmpty) return;
+    // Batch insert all movies at once instead of one query per movie
+    final batch = movies.map((movie) => {
+      'tmdb_id': movie.tmdbId,
+      'title': movie.title,
+      'year': movie.year,
+      'poster_url': movie.posterUrl,
+      'genres': movie.genres,
+      'popularity': movie.popularity,
+      'runtime': movie.runtime,
+      'cached_at': DateTime.now().toIso8601String(),
+      'last_synced_at': DateTime.now().toIso8601String(),
+    }).toList();
+    await _supabase.from('movies').upsert(batch, onConflict: 'tmdb_id');
   }
 
   Future<List<MovieModel>> getCachedMovies({int limit = 50}) async {
