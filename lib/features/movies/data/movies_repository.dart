@@ -18,13 +18,10 @@ class MoviesRepository {
 
     final movies = <MovieModel>[];
     for (final json in results) {
-      final movie = MovieModel.fromTmdb(json as Map<String, dynamic>);
-      movies.add(movie);
+      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>));
     }
 
-    // Cache movies in Supabase
-    await _cacheMovies(movies);
-
+    // Skip caching to avoid RLS issues during swiping - movies come from TMDB anyway
     return movies;
   }
 

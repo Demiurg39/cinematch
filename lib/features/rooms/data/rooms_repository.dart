@@ -18,7 +18,7 @@ class RoomsRepository {
       'code': code,
       'name': name,
       'created_by': userId,
-      'status': 'lobby',
+      'status': 'active',
       'match_threshold': 'half',
     }).select().single();
 

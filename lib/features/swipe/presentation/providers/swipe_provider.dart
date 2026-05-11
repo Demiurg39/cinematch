@@ -24,26 +24,36 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
   }
 
   Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
+    // Optimistic update - remove card immediately for instant feedback
+    final currentDeck = state.valueOrNull ?? [];
+    final updatedDeck = currentDeck.where((m) => m.id != movie.id).toList();
+    state = AsyncData(updatedDeck);
+
+    // Record swipe in background
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
-      await ref.read(swipeRepositoryProvider).recordSwipe(
+      ref.read(swipeRepositoryProvider).recordSwipe(
             userId: userId,
             movie: movie,
             action: action,
-          );
+          ).catchError((_) {}); // Ignore errors silently
     }
-
-    final currentDeck = state.valueOrNull ?? [];
-    final updatedDeck = currentDeck.where((m) => m.id != movie.id).toList();
 
     // Load more if running low
     if (updatedDeck.length < 5) {
+      _loadMoreInBackground();
+    }
+  }
+
+  Future<void> _loadMoreInBackground() async {
+    try {
       final repository = ref.read(moviesRepositoryProvider);
+      final currentDeck = state.valueOrNull ?? [];
       final newMovies = await repository.getPopularMovies(page: (currentDeck.length ~/ 20) + 1);
       newMovies.shuffle();
-      state = AsyncData([...updatedDeck, ...newMovies]);
-    } else {
-      state = AsyncData(updatedDeck);
+      state = AsyncData([...currentDeck, ...newMovies]);
+    } catch (_) {
+      // Silently ignore load errors
     }
   }
 
