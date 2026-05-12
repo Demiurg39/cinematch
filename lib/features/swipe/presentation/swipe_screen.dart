@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/swipe_provider.dart';
+import 'providers/genre_filter_provider.dart';
 import 'widgets/swipe_card.dart';
 import 'widgets/swipe_indicators.dart';
 import 'widgets/movie_card_content.dart';
 import 'widgets/match_celebration.dart';
+import 'widgets/genre_filter_sheet.dart';
 import '../../movies/domain/movie_model.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../swipe/domain/swipe_action.dart';
@@ -186,9 +188,12 @@ class _SwipeDeck extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final genreFilter = ref.watch(genreFilterNotifierProvider);
+    final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+
     return Column(
       children: [
-        // Header with logo and count
+        // Header with logo and filter
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
           child: Row(
@@ -216,37 +221,47 @@ class _SwipeDeck extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.primaryPink.withValues(alpha: 0.3),
-                    width: 1,
+
+              // Filter button
+              GestureDetector(
+                onTap: () => showGenreFilterSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selectedGenres.isNotEmpty
+                          ? AppColors.primaryPink
+                          : AppColors.textMuted.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryPink,
-                        shape: BoxShape.circle,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.filter_list,
+                        size: 16,
+                        color: selectedGenres.isNotEmpty
+                            ? AppColors.primaryPink
+                            : AppColors.textMuted,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${movies.length} left',
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 6),
+                      Text(
+                        selectedGenres.isEmpty
+                            ? 'Filter'
+                            : '${selectedGenres.length} selected',
+                        style: TextStyle(
+                          color: selectedGenres.isNotEmpty
+                              ? AppColors.primaryPink
+                              : AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

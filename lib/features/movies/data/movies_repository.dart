@@ -31,6 +31,53 @@ class MoviesRepository {
     return movies;
   }
 
+  Future<List<MovieModel>> discoverMoviesByGenre({
+    required List<int> genreIds,
+    int page = 1,
+  }) async {
+    final data = await _tmdbApi.discoverMovies(
+      page: page,
+      withGenres: genreIds,
+    );
+    final results = data['results'] as List<dynamic>;
+
+    final movies = <MovieModel>[];
+    for (final json in results) {
+      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>));
+    }
+
+    try {
+      await _cacheMovies(movies);
+    } catch (_) {}
+
+    return movies;
+  }
+
+  Future<List<MovieModel>> getCachedMovies({
+    int limit = 50,
+    List<int>? excludeTmdbIds,
+  }) async {
+    final response = await _supabase
+        .from('movies')
+        .select()
+        .order('popularity', ascending: false)
+        .limit(limit + 50); // Overfetch to account for filtering
+
+    var movies = (response as List<dynamic>)
+        .map((json) => MovieModel.fromJson(json as Map<String, dynamic>))
+        .toList();
+
+    // Filter out excluded tmdbIds client-side
+    if (excludeTmdbIds != null && excludeTmdbIds.isNotEmpty) {
+      movies = movies.where((m) => !excludeTmdbIds.contains(m.tmdbId)).toList();
+      if (movies.length > limit) {
+        movies = movies.sublist(0, limit);
+      }
+    }
+
+    return movies;
+  }
+
   Future<List<MovieModel>> searchMovies(String query) async {
     final data = await _tmdbApi.searchMovies(query: query);
     final results = data['results'] as List<dynamic>;
@@ -59,9 +106,14 @@ class MoviesRepository {
     return await _tmdbApi.getWatchProviders(tmdbId: tmdbId);
   }
 
+  Future<List<Map<String, dynamic>>> getGenreList() async {
+    final data = await _tmdbApi.getGenreList();
+    final genres = data['genres'] as List<dynamic>;
+    return genres.map((g) => g as Map<String, dynamic>).toList();
+  }
+
   Future<void> _cacheMovies(List<MovieModel> movies) async {
     if (movies.isEmpty) return;
-    // Batch insert all movies at once instead of one query per movie
     final batch = movies.map((movie) => {
       'tmdb_id': movie.tmdbId,
       'title': movie.title,
@@ -74,18 +126,6 @@ class MoviesRepository {
       'last_synced_at': DateTime.now().toIso8601String(),
     }).toList();
     await _supabase.from('movies').upsert(batch, onConflict: 'tmdb_id');
-  }
-
-  Future<List<MovieModel>> getCachedMovies({int limit = 50}) async {
-    final response = await _supabase
-        .from('movies')
-        .select()
-        .order('popularity', ascending: false)
-        .limit(limit);
-
-    return (response as List<dynamic>)
-        .map((json) => MovieModel.fromJson(json as Map<String, dynamic>))
-        .toList();
   }
 
   Future<List<MovieModel>> getMoviesByGenre(String genre) async {

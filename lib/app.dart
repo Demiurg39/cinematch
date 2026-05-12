@@ -12,8 +12,8 @@ class CinematchApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeAsync = ref.watch(themeModeNotifierProvider);
-    final isDark = themeAsync.valueOrNull ?? true;
+    // Theme always dark for now
+    ref.watch(themeModeNotifierProvider);
 
     return MaterialApp(
       title: 'Cinematch',

@@ -71,4 +71,25 @@ class TmdbApiClient {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> discoverMovies({
+    int page = 1,
+    List<int>? withGenres,
+    String language = 'en-US',
+    String sortBy = 'popularity.desc',
+  }) async {
+    final queryParams = <String, dynamic>{
+      'page': page,
+      'language': language,
+      'sort_by': sortBy,
+    };
+    if (withGenres != null && withGenres.isNotEmpty) {
+      queryParams['with_genres'] = withGenres.join(',');
+    }
+    final response = await _dio.get(
+      TmdbEndpoints.discoverMovies,
+      queryParameters: queryParams,
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

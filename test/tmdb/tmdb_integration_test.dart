@@ -65,7 +65,7 @@ void main() {
       final data = await _get('/movie/157336', queryParams: {'language': 'en-US'});
 
       expect(data.containsKey('runtime'), true);
-      expect(data['runtime'], isA<int?>() ?? isA<int>());
+      expect(data['runtime'], isA<int>());
       expect(data.containsKey('vote_average'), true);
       expect(data['vote_average'], isA<double>());
     });

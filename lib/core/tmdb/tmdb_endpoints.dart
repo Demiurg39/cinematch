@@ -2,6 +2,7 @@ class TmdbEndpoints {
   TmdbEndpoints._();
 
   static const String popularMovies = '/movie/popular';
+  static const String discoverMovies = '/discover/movie';
   static const String searchMovies = '/search/movie';
   static const String movieDetails = '/movie';
   static const String watchProviders = '/movie/{movie_id}/watch/providers';
