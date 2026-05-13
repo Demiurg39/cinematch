@@ -62,9 +62,6 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     final offsetAnim = _animController.drive(
       Tween(begin: startOffset, end: Offset.zero).chain(CurveTween(curve: Curves.elasticOut)),
     );
-    final rotationAnim = _animController.drive(
-      Tween(begin: startRotation, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)),
-    );
 
     void listener() {
       if (!mounted) return;
@@ -247,7 +244,7 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
                       opacity: _overlayController.value,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _getColorForDirection(_currentDirection)?.withValues(alpha: 0.4),
+                          color: _getColorForDirection(_currentDirection).withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
