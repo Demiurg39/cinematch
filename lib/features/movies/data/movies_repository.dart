@@ -155,9 +155,9 @@ class MoviesRepository {
   }) async {
     try {
       final response = await _supabase.rpc('get_recommended_movies', params: {
-        'user_id_param': userId,
-        'exclude_swiped': true,
-        'limit_count': limit,
+        'p_user_id': userId,
+        'p_exclude_swiped': true,
+        'p_limit_count': limit,
       });
 
       final results = response as List<dynamic>;
@@ -166,14 +166,14 @@ class MoviesRepository {
       // Convert RPC result (without id field) to MovieModel using fromJson
       return results.map((row) {
         final json = Map<String, dynamic>.from(row as Map);
-        json['id'] = '';
-        json['tmdb_id'] = json['tmdb_id'];
-        json['title'] = json['title'];
+        json['id'] = json['out_movie_id'] ?? '';
+        json['tmdb_id'] = json['out_tmdb_id'];
+        json['title'] = json['out_title'];
         json['overview'] = json['overview'];
-        json['year'] = json['year'];
-        json['poster_url'] = json['poster_url'];
-        json['genres'] = json['genres'] ?? [];
-        json['popularity'] = json['popularity'] ?? 0;
+        json['year'] = json['out_year'];
+        json['poster_url'] = json['out_poster_url'];
+        json['genres'] = json['out_genres'] ?? [];
+        json['popularity'] = json['out_popularity'] ?? 0;
         json['cached_at'] = DateTime.now().toIso8601String();
         return MovieModel.fromJson(json);
       }).toList();
@@ -185,7 +185,50 @@ class MoviesRepository {
 
   Future<void> _cacheMovies(List<MovieModel> movies) async {
     if (movies.isEmpty) return;
-    final batch = movies.map((movie) => {
+
+    // Fetch genres for movies that don't have them
+    final moviesNeedingGenres = <MovieModel>[];
+    final moviesWithGenres = <MovieModel>[];
+
+    for (final movie in movies) {
+      if (movie.genres.isEmpty) {
+        moviesNeedingGenres.add(movie);
+      } else {
+        moviesWithGenres.add(movie);
+      }
+    }
+
+    // Try to fetch genres for movies missing them
+    if (moviesNeedingGenres.isNotEmpty) {
+      try {
+        final genreData = await _tmdbApi.getGenreList();
+        final genres = genreData['genres'] as List<dynamic>;
+        final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
+
+        for (final movie in moviesNeedingGenres) {
+          try {
+            final details = await _tmdbApi.getMovieDetails(tmdbId: movie.tmdbId);
+            final genreIds = (details['genres'] as List<dynamic>?)
+                ?.map((g) => g['id'] as int)
+                .toList() ?? [];
+            final genreNames = genreIds
+                .map((id) => genreMap[id])
+                .whereType<String>()
+                .toList();
+
+            moviesWithGenres.add(movie.copyWith(genres: genreNames));
+          } catch (_) {
+            // Fall back to caching without genres
+            moviesWithGenres.add(movie);
+          }
+        }
+      } catch (_) {
+        // Can't fetch genres - cache movies as-is
+        moviesWithGenres.addAll(moviesNeedingGenres);
+      }
+    }
+
+    final batch = moviesWithGenres.map((movie) => {
       'tmdb_id': movie.tmdbId,
       'title': movie.title,
       'overview': movie.overview,
@@ -198,6 +241,47 @@ class MoviesRepository {
       'last_synced_at': DateTime.now().toIso8601String(),
     }).toList();
     await _supabase.from('movies').upsert(batch, onConflict: 'tmdb_id');
+  }
+
+  Future<int> refreshMoviesWithoutGenres({int batchSize = 10}) async {
+    // Find movies missing genres
+    final response = await _supabase
+        .from('movies')
+        .select('tmdb_id, title')
+        .or('genres.is.null,genres.eq.{}')
+        .limit(batchSize);
+
+    if ((response as List).isEmpty) return 0;
+
+    final genreData = await _tmdbApi.getGenreList();
+    final genres = genreData['genres'] as List<dynamic>;
+    final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
+
+    int refreshed = 0;
+    for (final movieJson in response) {
+      final tmdbId = movieJson['tmdb_id'] as int;
+      try {
+        final details = await _tmdbApi.getMovieDetails(tmdbId: tmdbId);
+        final genreIds = (details['genres'] as List<dynamic>?)
+            ?.map((g) => g['id'] as int)
+            .toList() ?? [];
+        final genreNames = genreIds
+            .map((id) => genreMap[id])
+            .whereType<String>()
+            .toList();
+
+        await _supabase.from('movies').update({
+          'genres': genreNames,
+          'last_synced_at': DateTime.now().toIso8601String(),
+        }).eq('tmdb_id', tmdbId);
+
+        refreshed++;
+      } catch (_) {
+        // Skip this movie
+      }
+    }
+
+    return refreshed;
   }
 
   Future<List<MovieModel>> getMoviesByGenre(String genre) async {

@@ -79,4 +79,32 @@ class MovieModel {
       lastSyncedAt: DateTime.now(),
     );
   }
+
+  MovieModel copyWith({
+    String? id,
+    int? tmdbId,
+    String? title,
+    String? overview,
+    int? year,
+    String? posterUrl,
+    List<String>? genres,
+    double? popularity,
+    int? runtime,
+    DateTime? cachedAt,
+    DateTime? lastSyncedAt,
+  }) {
+    return MovieModel(
+      id: id ?? this.id,
+      tmdbId: tmdbId ?? this.tmdbId,
+      title: title ?? this.title,
+      overview: overview ?? this.overview,
+      year: year ?? this.year,
+      posterUrl: posterUrl ?? this.posterUrl,
+      genres: genres ?? this.genres,
+      popularity: popularity ?? this.popularity,
+      runtime: runtime ?? this.runtime,
+      cachedAt: cachedAt ?? this.cachedAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+    );
+  }
 }
