@@ -211,4 +211,15 @@ class MoviesRepository {
         .map((json) => MovieModel.fromJson(json as Map<String, dynamic>))
         .toList();
   }
+
+  Future<List<Map<String, dynamic>>> getUserGenrePreferences(String userId) async {
+    try {
+      final response = await _supabase.rpc('get_user_genre_preferences', params: {
+        'user_id_param': userId,
+      });
+      return (response as List<dynamic>).cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
 }

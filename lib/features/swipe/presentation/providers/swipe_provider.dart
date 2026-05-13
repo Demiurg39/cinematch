@@ -272,6 +272,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
         // If ML didn't return genre-matched movies, use TMDB discover
         if (newMovies.isEmpty) {
+          newMlTmdbIds.clear(); // Clear ML tracking since we're using TMDB now
           newMovies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
             page: _currentPage,
@@ -285,8 +286,16 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         // Try ML recommendations for logged-in users
         mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
         if (mlMovies.isNotEmpty) {
-          newMovies = mlMovies;
-          newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
+          // Only mark as ML if user has genre preferences (actual personalization)
+          // For now, all movies have empty genres so check via get_user_genre_preferences
+          final prefs = await _getUserGenrePreferences(userId);
+          if (prefs.isNotEmpty) {
+            newMovies = mlMovies;
+            newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
+          } else {
+            // No preferences yet - use ML results as fallback but don't mark as ML
+            newMovies = mlMovies;
+          }
         } else {
           // Fall back to popular
           newMovies = await repository.getPopularMovies(page: _currentPage);
@@ -368,6 +377,18 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       'Western': 37,
     };
     return genreMap[genreName] ?? 0;
+  }
+
+  Future<Map<String, double>> _getUserGenrePreferences(String userId) async {
+    try {
+      final repository = ref.read(moviesRepositoryProvider);
+      final prefs = await repository.getUserGenrePreferences(userId);
+      return Map.fromEntries(
+        prefs.map((p) => MapEntry(p['genre'] as String, p['weight'] as double))
+      );
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<void> refresh() async {
