@@ -114,38 +114,12 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       if (mlMovies.isNotEmpty) {
         movies = mlMovies;
       } else {
-        // Cold start - no ML data yet, fall back to cached/popular
-        final cached = await repository.getCachedMovies(limit: _initialLoadSize);
-        if (cached.isNotEmpty) {
-          cached.shuffle();
-          state = SwipeDeckState(
-            movies: cached,
-            seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
-            isLoading: false,
-            mlRecommendedTmdbIds: {},
-          );
-          _refreshMissingDetails(cached);
-          _loadMoreInBackground();
-          return;
-        }
+        // No ML data - use popular movies directly
         movies = await repository.getPopularMovies(page: _currentPage);
         _currentPage++;
       }
     } else {
       // No userId - use popular movies
-      final cached = await repository.getCachedMovies(limit: _initialLoadSize);
-      if (cached.isNotEmpty) {
-        cached.shuffle();
-        state = SwipeDeckState(
-          movies: cached,
-          seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
-          isLoading: false,
-          mlRecommendedTmdbIds: {},
-        );
-        _refreshMissingDetails(cached);
-        _loadMoreInBackground();
-        return;
-      }
       movies = await repository.getPopularMovies(page: _currentPage);
       _currentPage++;
     }
@@ -168,42 +142,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       mlRecommendedTmdbIds: mlTmdbIds,
     );
 
-    _refreshMissingDetails(movies);
     _loadMoreInBackground();
-  }
-
-  Future<void> _refreshMissingDetails(List<MovieModel> movies) async {
-    final repository = ref.read(moviesRepositoryProvider);
-
-    // Find movies missing overview OR genres
-    final needsRefresh = movies.where((m) =>
-      (m.overview == null || m.overview!.isEmpty) ||
-      (m.genres.isEmpty)
-    ).toList();
-    if (needsRefresh.isEmpty) return;
-
-    final refreshed = await Future.wait(
-      needsRefresh.map((m) => repository.refreshMovieDetails(m.tmdbId)),
-    );
-
-    final validRefreshed = refreshed.whereType<MovieModel>().toList();
-    if (validRefreshed.isEmpty) return;
-
-    // Build a map of tmdbId -> refreshed movie for quick lookup
-    final refreshMap = {for (var r in validRefreshed) r.tmdbId: r};
-
-    // Update state by merging refreshed movies with existing state
-    final updatedMovies = state.movies.map((m) {
-      final refreshed = refreshMap[m.tmdbId];
-      return refreshed ?? m;
-    }).toList();
-
-    state = SwipeDeckState(
-      movies: updatedMovies,
-      seenTmdbIds: state.seenTmdbIds,
-      isLoading: false,
-      mlRecommendedTmdbIds: state.mlRecommendedTmdbIds,
-    );
   }
 
   Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
@@ -342,9 +281,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         // If no unseen movies, we keep all newMovies (some may be seen but better than nothing)
       }
       newMovies.shuffle();
-
-      // Fire and forget - update state without blocking
-      _refreshMissingDetails(newMovies);
 
       if (newMovies.isNotEmpty) {
         final newSeen = {...state.seenTmdbIds, ...newMovies.map((m) => m.tmdbId).toSet()};
