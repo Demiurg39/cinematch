@@ -317,26 +317,10 @@ class _SwipeDeck extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 32),
           child: SwipeIndicators(
-            onAction: (indicatorAction) {
-              if (movies.isEmpty) return;
-              final movie = movies[0];
-              SwipeAction action;
-              switch (indicatorAction) {
-                case SwipeIndicatorAction.like:
-                  action = SwipeAction.like;
-                  break;
-                case SwipeIndicatorAction.dislike:
-                  action = SwipeAction.dislike;
-                  break;
-                case SwipeIndicatorAction.maybe:
-                  action = SwipeAction.maybe;
-                  break;
-                case SwipeIndicatorAction.veto:
-                  action = SwipeAction.veto;
-                  break;
-              }
-              _onSwipe(context, ref, movie, action);
-            },
+            onDislike: movies.isEmpty ? null : () => _onSwipe(context, ref, movies[0], SwipeAction.dislike),
+            onMaybe: movies.isEmpty ? null : () => _onSwipe(context, ref, movies[0], SwipeAction.maybe),
+            onVeto: movies.isEmpty ? null : () => _onSwipe(context, ref, movies[0], SwipeAction.veto),
+            onLike: movies.isEmpty ? null : () => _onSwipe(context, ref, movies[0], SwipeAction.like),
           ),
         ),
       ],
@@ -353,16 +337,9 @@ class _SwipeDeck extends ConsumerWidget {
   }
 
   void _onSwipe(BuildContext context, WidgetRef ref, MovieModel movie, SwipeAction action) {
-    // Show feedback for all actions
     if (action == SwipeAction.like) {
-      // Show match celebration on like
       showMatchCelebration(context, movie);
-    } else if (action == SwipeAction.maybe) {
-      showSwipeFeedback(context, 'Maybe later', Colors.blue.shade400);
-    } else if (action == SwipeAction.veto) {
-      showSwipeFeedback(context, 'Veto', Colors.orange.shade400);
     }
-
     ref.read(swipeDeckNotifierProvider.notifier).onSwipe(action, movie);
   }
 }

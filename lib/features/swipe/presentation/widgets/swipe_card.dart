@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum SwipeDirection { left, right, up, down }
 
@@ -27,9 +28,7 @@ class SwipeCard extends StatefulWidget {
 class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
   late AnimationController _animController;
   late AnimationController _overlayController;
-  late Animation<Offset> _offsetAnimation;
-  late Animation<double> _rotationAnimation;
-  late Animation<double> _overlayAnimation;
+
   Offset _dragPosition = Offset.zero;
   bool _isAnimating = false;
   SwipeDirection? _currentDirection;
@@ -39,20 +38,11 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 300),
     );
     _overlayController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 120),
-    );
-    _offsetAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-    _rotationAnimation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-    _overlayAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _overlayController, curve: Curves.easeOut),
     );
   }
 
@@ -64,30 +54,47 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
   }
 
   void _runResetAnimation() {
+    _animController.reset();
+
     final startOffset = _dragPosition;
-    final startRotation = _dragPosition.dx / 500;
+    final startRotation = _dragPosition.dx / 1500;
 
-    _offsetAnimation = Tween<Offset>(begin: startOffset, end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
+    final offsetAnim = _animController.drive(
+      Tween(begin: startOffset, end: Offset.zero).chain(CurveTween(curve: Curves.elasticOut)),
     );
-    _rotationAnimation = Tween<double>(begin: startRotation, end: 0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-    _overlayAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _overlayController, curve: Curves.easeOut),
+    final rotationAnim = _animController.drive(
+      Tween(begin: startRotation, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)),
     );
 
-    _isAnimating = true;
-    _currentDirection = null;
-    _animController.forward(from: 0).then((_) {
+    void listener() {
+      if (!mounted) return;
+      setState(() {
+        _dragPosition = offsetAnim.value;
+      });
+    }
+
+    _animController.addListener(listener);
+
+    void onComplete(AnimationStatus status) {
+      if (status != AnimationStatus.completed) return;
+      _animController.removeListener(listener);
+      _animController.removeStatusListener(onComplete);
       if (mounted) {
         setState(() {
           _isAnimating = false;
           _dragPosition = Offset.zero;
         });
       }
-    });
-    _overlayController.forward(from: 0);
+    }
+
+    _animController.addStatusListener(onComplete);
+
+    _isAnimating = true;
+    _currentDirection = null;
+    _overlayController.reset();
+    _overlayController.forward();
+
+    _animController.forward();
   }
 
   SwipeDirection? _getSwipeDirection() {
@@ -106,15 +113,15 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
   Color _getColorForDirection(SwipeDirection? direction) {
     switch (direction) {
       case SwipeDirection.right:
-        return Colors.green.withValues(alpha: 0.75);
+        return Colors.green;
       case SwipeDirection.left:
-        return Colors.red.withValues(alpha: 0.75);
+        return Colors.red;
       case SwipeDirection.up:
-        return Colors.orange.withValues(alpha: 0.75);
+        return Colors.orange;
       case SwipeDirection.down:
-        return Colors.blue.withValues(alpha: 0.75);
+        return Colors.blue;
       default:
-        return Colors.transparent;
+        return Colors.grey;
     }
   }
 
@@ -133,19 +140,39 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     }
   }
 
+  double _getAmbientIntensity() {
+    final dx = _dragPosition.dx.abs();
+    final dy = _dragPosition.dy.abs();
+    final maxDist = MediaQuery.of(context).size.width * 0.4;
+    return (dx > dy ? dx : dy / 2).clamp(0.0, maxDist) / maxDist;
+  }
+
+  Alignment _getAmbientGradientBegin() {
+    if (_dragPosition.dx > 10) return Alignment.centerRight;
+    if (_dragPosition.dx < -10) return Alignment.centerLeft;
+    if (_dragPosition.dy < -10) return Alignment.topCenter;
+    if (_dragPosition.dy > 10) return Alignment.bottomCenter;
+    return Alignment.center;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Rotation pivots from bottom - top part leans
+    final rotation = _dragPosition.dx / 1500;
+    final scale = 1.0 + (_dragPosition.distance / 4000).clamp(0.0, 0.02);
+    final ambientIntensity = _getAmbientIntensity();
+
     return GestureDetector(
       onPanStart: (_) {
         if (_isAnimating) {
           _animController.stop();
-          _overlayController.stop();
         }
       },
       onPanUpdate: (details) {
         setState(() {
           _dragPosition += details.delta;
         });
+        HapticFeedback.selectionClick();
       },
       onPanEnd: (details) {
         final velocity = details.velocity.pixelsPerSecond;
@@ -158,57 +185,69 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
 
           if (distance > widget.threshold || velocity.distance > 800) {
             _currentDirection = direction;
-            switch (direction) {
-              case SwipeDirection.right:
-                widget.onSwipeRight?.call();
-                break;
-              case SwipeDirection.left:
-                widget.onSwipeLeft?.call();
-                break;
-              case SwipeDirection.up:
-                widget.onSwipeUp?.call();
-                break;
-              case SwipeDirection.down:
-                widget.onSwipeDown?.call();
-                break;
-            }
-            setState(() {
-              _dragPosition = Offset.zero;
-              _currentDirection = null;
-            });
+            HapticFeedback.mediumImpact();
+
+            final callback = () {
+              switch (direction) {
+                case SwipeDirection.right:
+                  widget.onSwipeRight?.call();
+                  break;
+                case SwipeDirection.left:
+                  widget.onSwipeLeft?.call();
+                  break;
+                case SwipeDirection.up:
+                  widget.onSwipeUp?.call();
+                  break;
+                case SwipeDirection.down:
+                  widget.onSwipeDown?.call();
+                  break;
+              }
+            };
+
+            _runExitAnimation(direction, callback);
             return;
           }
         }
 
         _runResetAnimation();
       },
-      child: AnimatedBuilder(
-        animation: _animController,
-        builder: (context, child) {
-          final offset = _isAnimating ? _offsetAnimation.value : _dragPosition;
-          final rotation = _isAnimating ? _rotationAnimation.value : _dragPosition.dx / 500;
-
-          return Transform(
-            transform: Matrix4.identity()
-              ..setTranslationRaw(offset.dx, offset.dy, 0)
-              ..rotateZ(rotation),
-            alignment: Alignment.center,
-            child: child,
-          );
-        },
+      child: Transform(
+        transform: Matrix4.identity()
+          ..setTranslationRaw(_dragPosition.dx, _dragPosition.dy, 0)
+          ..rotateZ(rotation)
+          ..scale(scale),
+        alignment: Alignment.bottomCenter, // Pivot from bottom
         child: Stack(
           children: [
             widget.child,
+            if (ambientIntensity > 0.05)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: _getAmbientGradientBegin(),
+                        end: Alignment.center,
+                        colors: [
+                          _getColorForDirection(_getSwipeDirection()).withValues(alpha: ambientIntensity * 0.5),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (_currentDirection != null)
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _overlayController,
                   builder: (context, _) {
                     return Opacity(
-                      opacity: _overlayAnimation.value,
+                      opacity: _overlayController.value,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _getColorForDirection(_currentDirection),
+                          color: _getColorForDirection(_currentDirection)?.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
@@ -227,5 +266,60 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  void _runExitAnimation(SwipeDirection direction, VoidCallback callback) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    Offset endOffset;
+    switch (direction) {
+      case SwipeDirection.left:
+        endOffset = Offset(-screenWidth * 1.5, 0);
+        break;
+      case SwipeDirection.right:
+        endOffset = Offset(screenWidth * 1.5, 0);
+        break;
+      case SwipeDirection.up:
+        endOffset = Offset(0, -screenHeight * 1.5);
+        break;
+      case SwipeDirection.down:
+        endOffset = Offset(0, screenHeight * 1.5);
+        break;
+    }
+
+    final startOffset = _dragPosition;
+
+    _overlayController.forward(from: 0);
+
+    final anim = _animController.drive(
+      CurveTween(curve: Curves.easeOutCubic),
+    );
+
+    void listener() {
+      if (!mounted) return;
+      setState(() {
+        _dragPosition = Offset.lerp(startOffset, endOffset, anim.value)!;
+      });
+    }
+
+    _animController.addListener(listener);
+
+    void onComplete(AnimationStatus status) {
+      if (status != AnimationStatus.completed) return;
+      _animController.removeListener(listener);
+      _animController.removeStatusListener(onComplete);
+      callback();
+      if (mounted) {
+        setState(() {
+          _dragPosition = Offset.zero;
+          _currentDirection = null;
+        });
+        _animController.reset();
+      }
+    }
+
+    _animController.addStatusListener(onComplete);
+    _animController.forward(from: 0);
   }
 }
