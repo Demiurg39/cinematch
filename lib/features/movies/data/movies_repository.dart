@@ -102,8 +102,45 @@ class MoviesRepository {
     return MovieModel.fromJson(response);
   }
 
-  Future<Map<String, dynamic>?> getWatchProviders(int tmdbId) async {
-    return await _tmdbApi.getWatchProviders(tmdbId: tmdbId);
+  Future<Map<String, dynamic>?> getWatchProviders(int tmdbId, {String watchRegion = 'US'}) async {
+    return await _tmdbApi.getWatchProviders(tmdbId: tmdbId, watchRegion: watchRegion);
+  }
+
+  Future<MovieModel?> refreshMovieDetails(int tmdbId) async {
+    try {
+      final data = await _tmdbApi.getMovieDetails(tmdbId: tmdbId);
+      final movie = MovieModel.fromTmdb(data);
+
+      // Get genre names from filter if available
+      final genreData = await _tmdbApi.getGenreList();
+      final genres = genreData['genres'] as List<dynamic>;
+      final genreMap = {for (var g in genres) g['id']: g['name']};
+      final genreNames = (data['genres'] as List<dynamic>?)
+          ?.map((g) => g['name'] as String?)
+          .whereType<String>()
+          .toList() ?? [];
+
+      final refreshedMovie = MovieModel(
+        id: movie.id,
+        tmdbId: movie.tmdbId,
+        title: movie.title,
+        overview: data['overview'] as String?,
+        year: movie.year,
+        posterUrl: movie.posterUrl,
+        genres: genreNames,
+        popularity: movie.popularity,
+        runtime: data['runtime'] as int?,
+        cachedAt: DateTime.now(),
+        lastSyncedAt: DateTime.now(),
+      );
+
+      // Update cache
+      await _cacheMovies([refreshedMovie]);
+
+      return refreshedMovie;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getGenreList() async {
@@ -117,6 +154,7 @@ class MoviesRepository {
     final batch = movies.map((movie) => {
       'tmdb_id': movie.tmdbId,
       'title': movie.title,
+      'overview': movie.overview,
       'year': movie.year,
       'poster_url': movie.posterUrl,
       'genres': movie.genres,

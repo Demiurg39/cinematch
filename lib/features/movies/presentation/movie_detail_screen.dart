@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cinematch/features/movies/domain/movie_model.dart';
 import 'package:cinematch/core/theme/app_theme.dart';
+import 'providers/movies_provider.dart';
 
-class MovieDetailScreen extends StatelessWidget {
+class MovieDetailScreen extends ConsumerWidget {
   final MovieModel movie;
 
   const MovieDetailScreen({super.key, required this.movie});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final watchProvidersAsync = ref.watch(watchProvidersNotifierProvider(movie.tmdbId));
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: CustomScrollView(
@@ -136,50 +141,51 @@ class MovieDetailScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                   ],
 
-                  // Description placeholder (TMDB doesn't give overview in list)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceDark,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: AppColors.primaryPink,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'About',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                  // Description
+                  if (movie.overview != null && movie.overview!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: AppColors.primaryPink,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Swipe right to like this movie and save it to your watchlist. '
-                          'See more details when you match with friends in a room!',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                            height: 1.5,
+                              const SizedBox(width: 8),
+                              const Text(
+                                'About',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            movie.overview!,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+
                   const SizedBox(height: 24),
 
-                  // Where to watch placeholder
+                  // Where to watch
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -208,13 +214,127 @@ class MovieDetailScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Streaming availability will appear here when you\'re matched with this movie.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                            height: 1.5,
+                        watchProvidersAsync.when(
+                          loading: () => const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
+                          error: (_, __) => const Text(
+                            'Streaming info unavailable',
+                            style: TextStyle(color: AppColors.textMuted),
+                          ),
+                          data: (providers) {
+                            if (providers == null) {
+                              return const Text(
+                                'No streaming info available for your region',
+                                style: TextStyle(color: AppColors.textMuted),
+                              );
+                            }
+                            final results = providers['results'] as Map<String, dynamic>?;
+                            if (results == null || results.isEmpty) {
+                              return const Text(
+                                'No streaming info available',
+                                style: TextStyle(color: AppColors.textMuted),
+                              );
+                            }
+                            // Get US providers or first available region
+                            final usProviders = results['US'] as Map<String, dynamic>?;
+                            final regionProviders = usProviders ?? results.values.first as Map<String, dynamic>?;
+                            if (regionProviders == null) {
+                              return const Text(
+                                'No streaming info available',
+                                style: TextStyle(color: AppColors.textMuted),
+                              );
+                            }
+                            final flatrate = regionProviders['flatrate'] as List<dynamic>?;
+                            final link = regionProviders['link'] as String?;
+                            if (flatrate == null || flatrate.isEmpty) {
+                              if (link != null) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'No streaming options available',
+                                      style: TextStyle(color: AppColors.textMuted),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () => _launchUrl(link),
+                                      icon: const Icon(Icons.open_in_new, size: 16),
+                                      label: const Text('View on TMDB'),
+                                    ),
+                                  ],
+                                );
+                              }
+                              return const Text(
+                                'No streaming options available',
+                                style: TextStyle(color: AppColors.textMuted),
+                              );
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: flatrate.map((provider) {
+                                    final p = provider as Map<String, dynamic>;
+                                    final logoPath = p['logo_path'] as String?;
+                                    final name = p['provider_name'] as String? ?? 'Unknown';
+                                    return GestureDetector(
+                                      onTap: link != null ? () => _launchUrl(link) : null,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(8),
+                                              color: AppColors.cardDark,
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Image.network(
+                                                'https://image.tmdb.org/t/p/w92$logoPath',
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => Icon(
+                                                  Icons.tv,
+                                                  color: AppColors.textMuted,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            name,
+                                            style: TextStyle(
+                                              color: AppColors.textSecondary,
+                                              fontSize: 11,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                if (link != null) ...[
+                                  const SizedBox(height: 12),
+                                  TextButton.icon(
+                                    onPressed: () => _launchUrl(link),
+                                    icon: const Icon(Icons.open_in_new, size: 16),
+                                    label: const Text('View on TMDB'),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -261,6 +381,13 @@ class MovieDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }
 

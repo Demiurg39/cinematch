@@ -2,6 +2,7 @@ class MovieModel {
   final String id;
   final int tmdbId;
   final String title;
+  final String? overview;
   final int? year;
   final String? posterUrl;
   final List<String> genres;
@@ -14,6 +15,7 @@ class MovieModel {
     required this.id,
     required this.tmdbId,
     required this.title,
+    this.overview,
     this.year,
     this.posterUrl,
     this.genres = const [],
@@ -28,6 +30,7 @@ class MovieModel {
       id: json['id'] as String,
       tmdbId: json['tmdb_id'] as int,
       title: json['title'] as String,
+      overview: json['overview'] as String?,
       year: json['year'] as int?,
       posterUrl: json['poster_url'] as String?,
       genres: (json['genres'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -45,6 +48,7 @@ class MovieModel {
       'id': id,
       'tmdb_id': tmdbId,
       'title': title,
+      'overview': overview,
       'year': year,
       'poster_url': posterUrl,
       'genres': genres,
@@ -60,14 +64,15 @@ class MovieModel {
     return MovieModel(
       id: '', // Will be set by Supabase
       tmdbId: json['id'] as int,
-      title: json['title'] as String,
+      title: json['title'] as String? ?? 'Unknown',
+      overview: json['overview'] as String?,
       year: releaseDate != null && releaseDate.isNotEmpty
           ? int.tryParse(releaseDate.split('-').first)
           : null,
       posterUrl: json['poster_path'] != null
           ? 'https://image.tmdb.org/t/p/w500${json['poster_path']}'
           : null,
-      genres: [], // Populated separately
+      genres: [], // Populated separately via genre IDs or details
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
       runtime: json['runtime'] as int?,
       cachedAt: DateTime.now(),

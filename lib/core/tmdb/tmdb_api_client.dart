@@ -55,9 +55,11 @@ class TmdbApiClient {
 
   Future<Map<String, dynamic>> getWatchProviders({
     required int tmdbId,
+    String watchRegion = 'US',
   }) async {
     final response = await _dio.get(
       TmdbEndpoints.movieWatchProviders(tmdbId),
+      queryParameters: {'watch_region': watchRegion},
     );
     return response.data as Map<String, dynamic>;
   }

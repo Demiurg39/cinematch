@@ -30,6 +30,6 @@ class GenreFilterNotifier extends _$GenreFilterNotifier {
   }
 
   void clearGenres() {
-    state = {...state, 'selectedGenres': []};
+    state = {...state, 'selectedGenres': <int>[]};
   }
 }

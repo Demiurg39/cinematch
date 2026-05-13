@@ -18,7 +18,7 @@ class FriendsScreen extends ConsumerWidget {
         children: [
           requestsAsync.when(
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
             data: (requests) {
               if (requests.isEmpty) return const SizedBox.shrink();
               return Column(

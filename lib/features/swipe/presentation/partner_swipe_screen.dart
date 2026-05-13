@@ -12,7 +12,7 @@ class PartnerSwipeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deckAsync = ref.watch(swipeDeckNotifierProvider);
+    final deckState = ref.watch(swipeDeckNotifierProvider);
     final partnerAsync = ref.watch(activePartnerNotifierProvider);
 
     return Scaffold(
@@ -29,64 +29,68 @@ class PartnerSwipeScreen extends ConsumerWidget {
           ) ?? const SizedBox.shrink(),
         ],
       ),
-      body: deckAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (movies) {
-          if (movies.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle, size: 80, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text('No more movies!', style: TextStyle(fontSize: 24)),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Stack(
-                    alignment: Alignment.center,
+      body: deckState.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : deckState.movies.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (movies.length > 1)
-                        Positioned(
-                          top: 20,
-                          left: 20,
-                          right: 20,
-                          bottom: 20,
-                          child: Transform.scale(
-                            scale: 0.95,
-                            child: MovieCardContent(
-                              movie: movies[1],
-                              showDetails: false,
-                            ),
-                          ),
-                        ),
-                      SwipeCard(
-                        onSwipeRight: () => _onSwipe(ref, movies[0], SwipeAction.like),
-                        onSwipeLeft: () => _onSwipe(ref, movies[0], SwipeAction.dislike),
-                        onSwipeUp: () => _onSwipe(ref, movies[0], SwipeAction.veto),
-                        onSwipeDown: () => _onSwipe(ref, movies[0], SwipeAction.maybe),
-                        child: MovieCardContent(movie: movies[0]),
-                      ),
+                      Icon(Icons.check_circle, size: 80, color: Colors.green),
+                      SizedBox(height: 16),
+                      Text('No more movies!', style: TextStyle(fontSize: 24)),
                     ],
                   ),
+                )
+              : _PartnerSwipeDeck(movies: deckState.movies),
+    );
+  }
+}
+
+class _PartnerSwipeDeck extends ConsumerWidget {
+  final List movies;
+  const _PartnerSwipeDeck({required this.movies});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (movies.length > 1)
+                  Positioned(
+                    top: 20,
+                    left: 20,
+                    right: 20,
+                    bottom: 20,
+                    child: Transform.scale(
+                      scale: 0.95,
+                      child: MovieCardContent(
+                        movie: movies[1],
+                        showDetails: false,
+                      ),
+                    ),
+                  ),
+                SwipeCard(
+                  onSwipeRight: () => _onSwipe(ref, movies[0], SwipeAction.like),
+                  onSwipeLeft: () => _onSwipe(ref, movies[0], SwipeAction.dislike),
+                  onSwipeUp: () => _onSwipe(ref, movies[0], SwipeAction.veto),
+                  onSwipeDown: () => _onSwipe(ref, movies[0], SwipeAction.maybe),
+                  child: MovieCardContent(movie: movies[0]),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 32),
-                child: SwipeIndicators(),
-              ),
-            ],
-          );
-        },
-      ),
+              ],
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 32),
+          child: SwipeIndicators(),
+        ),
+      ],
     );
   }
 

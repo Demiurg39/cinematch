@@ -73,6 +73,51 @@ in {
         ];
         env.CHROME_PATH = "${pkgs.chromium}/bin/chromium";
       };
+      socraticode = {
+        type = "stdio";
+        command = "npx";
+        args = [
+          "-y"
+          "socraticode"
+        ];
+        env = {
+          QDRANT_MODE = "external";
+          QDRANT_URL = "http://localhost:6333";
+          OLLAMA_MODE = "external";
+          OLLAMA_BASE_URL = "http://localhost:11434";
+        };
+      };
+    };
+  };
+
+  processes = {
+    qdrant = {
+      exec = lib.getExe pkgs.qdrant;
+      ready.http.get = {
+        port = 6333;
+        path = "/healthz";
+      };
+    };
+    ollama = {
+      exec = "${lib.getExe pkgs.ollama-cuda} serve";
+      ready.http.get = {
+        port = 11434;
+        path = "/";
+      };
+    };
+    ollama-model-setup = {
+      exec = ''
+        # Check if the model is already present to avoid redundant pulls
+        if ! ${lib.getExe pkgs.ollama-cuda} list | grep -q "nomic-embed-text"; then
+          echo "📥 Pulling nomic-embed-text model..."
+          ${lib.getExe pkgs.ollama-cuda} pull nomic-embed-text
+        else
+          echo "✅ Model nomic-embed-text is already available."
+        fi
+      '';
+      after = ["devenv:processes:ollama"];
+      ready.exec = "${lib.getExe pkgs.ollama-cuda} list | grep -q 'nomic-embed-text'";
+      restart.on = "never";
     };
   };
 

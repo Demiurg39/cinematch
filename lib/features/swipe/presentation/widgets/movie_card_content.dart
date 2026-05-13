@@ -44,7 +44,7 @@ class MovieCardContent extends StatelessWidget {
                         (loadingProgress.expectedTotalBytes ?? 1),
                   );
                 },
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   color: AppColors.surfaceDark,
                   child: const Icon(Icons.movie, size: 80, color: Colors.white54),
                 ),
@@ -178,6 +178,22 @@ class MovieCardContent extends StatelessWidget {
                             ),
                           );
                         }).toList(),
+                      ),
+                    ],
+
+                    // Description
+                    if (movie.overview != null && movie.overview!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        movie.overview!,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.4,
+                        ),
+                        maxLines: showDetails ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],

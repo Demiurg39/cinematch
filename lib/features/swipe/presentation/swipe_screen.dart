@@ -17,18 +17,16 @@ class SwipeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deckAsync = ref.watch(swipeDeckNotifierProvider);
+    final deckState = ref.watch(swipeDeckNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
-        child: deckAsync.when(
-          loading: () => const _LoadingState(),
-          error: (e, _) => _ErrorState(message: e.toString()),
-          data: (movies) => movies.isEmpty
-              ? const _EmptyState()
-              : _SwipeDeck(movies: movies),
-        ),
+        child: deckState.isLoading
+            ? const _LoadingState()
+            : deckState.movies.isEmpty
+                ? const _EmptyState()
+                : _SwipeDeck(movies: deckState.movies),
       ),
     );
   }
@@ -271,17 +269,15 @@ class _SwipeDeck extends ConsumerWidget {
         // Card stack
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 36),
             child: Stack(
               alignment: Alignment.center,
               children: [
                 // Background card (next in deck)
                 if (movies.length > 1)
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
+                  SizedBox(
+                    width: double.infinity,
+                    height: MediaQuery.of(context).size.height * 0.65,
                     child: Transform.scale(
                       scale: 0.94,
                       child: Opacity(
@@ -298,7 +294,9 @@ class _SwipeDeck extends ConsumerWidget {
                   ),
 
                 // Top card (swipeable)
-                Positioned.fill(
+                SizedBox(
+                  width: double.infinity,
+                  height: MediaQuery.of(context).size.height * 0.65,
                   child: GestureDetector(
                     onTap: () => _openDetail(context, movies[0]),
                     child: SwipeCard(
@@ -316,9 +314,30 @@ class _SwipeDeck extends ConsumerWidget {
         ),
 
         // Swipe indicators
-        const Padding(
-          padding: EdgeInsets.only(bottom: 32),
-          child: SwipeIndicators(),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 32),
+          child: SwipeIndicators(
+            onAction: (indicatorAction) {
+              if (movies.isEmpty) return;
+              final movie = movies[0];
+              SwipeAction action;
+              switch (indicatorAction) {
+                case SwipeIndicatorAction.like:
+                  action = SwipeAction.like;
+                  break;
+                case SwipeIndicatorAction.dislike:
+                  action = SwipeAction.dislike;
+                  break;
+                case SwipeIndicatorAction.maybe:
+                  action = SwipeAction.maybe;
+                  break;
+                case SwipeIndicatorAction.veto:
+                  action = SwipeAction.veto;
+                  break;
+              }
+              _onSwipe(context, ref, movie, action);
+            },
+          ),
         ),
       ],
     );
@@ -334,9 +353,14 @@ class _SwipeDeck extends ConsumerWidget {
   }
 
   void _onSwipe(BuildContext context, WidgetRef ref, MovieModel movie, SwipeAction action) {
-    // Show match celebration on like (simulating match for demo)
+    // Show feedback for all actions
     if (action == SwipeAction.like) {
+      // Show match celebration on like
       showMatchCelebration(context, movie);
+    } else if (action == SwipeAction.maybe) {
+      showSwipeFeedback(context, 'Maybe later', Colors.blue.shade400);
+    } else if (action == SwipeAction.veto) {
+      showSwipeFeedback(context, 'Veto', Colors.orange.shade400);
     }
 
     ref.read(swipeDeckNotifierProvider.notifier).onSwipe(action, movie);

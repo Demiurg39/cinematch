@@ -7,7 +7,7 @@ part of 'genre_filter_provider.dart';
 // **************************************************************************
 
 String _$genreFilterNotifierHash() =>
-    r'acc2b8328c7b3c30da1b8b6cdeeff607c671fdfb';
+    r'3eb689452bed18b03c2cd369558a0094ded1d929';
 
 /// See also [GenreFilterNotifier].
 @ProviderFor(GenreFilterNotifier)

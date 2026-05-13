@@ -24,6 +24,7 @@
 - **The Veto Power:** Strategic control to permanently exclude a specific movie from shared suggestions for a pair or group.
 - **Movie Roulette:** A high-fidelity UI tool to randomly select a winner from a pool of mutual matches.
 - **Streaming Integration:** Instantly see where a movie is available (Netflix, Apple TV, Disney+, etc.) via TMDB Watch Providers.
+- **Preference choosing:** When swiping, you can choose genres, years, and etc to choose from content interesting for YOU
 
 ### 🧠 Intelligent Recommendations
 
