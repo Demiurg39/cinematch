@@ -72,23 +72,37 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     final selectedGenres = genreFilter['selectedGenres'] as List<int>;
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    List<MovieModel> movies;
+    List<MovieModel> movies = [];
 
     if (selectedGenres.isNotEmpty) {
-      // For genre filter, load more pages upfront since genre may have limited movies
-      movies = await repository.discoverMoviesByGenre(
-        genreIds: selectedGenres,
-        page: _currentPage,
-      );
-      _currentPage++;
+      // Try ML first with genre filter (personalized + genre-matched)
+      List<MovieModel> mlMovies = [];
+      if (userId != null) {
+        mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
+        if (mlMovies.isNotEmpty) {
+          // Filter ML results by selected genres client-side
+          movies = mlMovies.where((m) {
+            return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
+          }).toList();
+        }
+      }
 
-      // If empty, retry
+      // Fall back to TMDB discover if ML didn't return genre-matched movies
       if (movies.isEmpty) {
         movies = await repository.discoverMoviesByGenre(
           genreIds: selectedGenres,
           page: _currentPage,
         );
         _currentPage++;
+
+        // If empty, retry
+        if (movies.isEmpty) {
+          movies = await repository.discoverMoviesByGenre(
+            genreIds: selectedGenres,
+            page: _currentPage,
+          );
+          _currentPage++;
+        }
       }
     } else if (userId != null) {
       // Try ML recommendations first if user has history
@@ -222,19 +236,32 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       final selectedGenres = genreFilter['selectedGenres'] as List<int>;
       final userId = Supabase.instance.client.auth.currentUser?.id;
 
-      List<MovieModel> newMovies;
+      List<MovieModel> newMovies = [];
       bool genreExhausted = false;
 
       if (selectedGenres.isNotEmpty) {
-        newMovies = await repository.discoverMoviesByGenre(
-          genreIds: selectedGenres,
-          page: _currentPage,
-        );
-        _currentPage++;
+        // Try ML first even with genre filter (personalized + genre-matched)
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null) {
+          final mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+          if (mlMovies.isNotEmpty) {
+            // Filter ML results by selected genres client-side
+            newMovies = mlMovies.where((m) {
+              return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
+            }).toList();
+          }
+        }
 
-        // If genre returns empty, it's exhausted
+        // If ML didn't return genre-matched movies, use TMDB discover
         if (newMovies.isEmpty) {
-          genreExhausted = true;
+          newMovies = await repository.discoverMoviesByGenre(
+            genreIds: selectedGenres,
+            page: _currentPage,
+          );
+          _currentPage++;
+          if (newMovies.isEmpty) {
+            genreExhausted = true;
+          }
         }
       } else if (userId != null) {
         // Try ML recommendations for logged-in users
@@ -294,6 +321,31 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     } catch (_) {
       // Silently ignore prefetch errors
     }
+  }
+
+  int _genreNameToId(String genreName) {
+    const genreMap = {
+      'Action': 28,
+      'Adventure': 12,
+      'Animation': 16,
+      'Comedy': 35,
+      'Crime': 80,
+      'Documentary': 99,
+      'Drama': 18,
+      'Family': 10751,
+      'Fantasy': 14,
+      'History': 36,
+      'Horror': 27,
+      'Music': 10402,
+      'Mystery': 9648,
+      'Romance': 10749,
+      'Science Fiction': 878,
+      'TV Movie': 10770,
+      'Thriller': 53,
+      'War': 10752,
+      'Western': 37,
+    };
+    return genreMap[genreName] ?? 0;
   }
 
   Future<void> refresh() async {
