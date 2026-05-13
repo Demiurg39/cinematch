@@ -59,8 +59,12 @@ class MovieModel {
     };
   }
 
-  factory MovieModel.fromTmdb(Map<String, dynamic> json) {
+  factory MovieModel.fromTmdb(Map<String, dynamic> json, {Map<int, String>? genreMap}) {
     final releaseDate = json['release_date'] as String?;
+    final genreIds = (json['genre_ids'] as List<dynamic>?)?.cast<int>() ?? [];
+    final genreNames = genreMap != null
+        ? genreIds.map((id) => genreMap[id]).whereType<String>().toList()
+        : <String>[];
     return MovieModel(
       id: '', // Will be set by Supabase
       tmdbId: json['id'] as int,
@@ -72,7 +76,7 @@ class MovieModel {
       posterUrl: json['poster_path'] != null
           ? 'https://image.tmdb.org/t/p/w500${json['poster_path']}'
           : null,
-      genres: [], // Populated separately via genre IDs or details
+      genres: genreNames,
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
       runtime: json['runtime'] as int?,
       cachedAt: DateTime.now(),

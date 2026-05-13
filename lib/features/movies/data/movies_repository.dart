@@ -16,9 +16,14 @@ class MoviesRepository {
     final data = await _tmdbApi.getPopularMovies(page: page);
     final results = data['results'] as List<dynamic>;
 
+    // Fetch genre list once for mapping
+    final genreData = await _tmdbApi.getGenreList();
+    final genres = genreData['genres'] as List<dynamic>;
+    final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
+
     final movies = <MovieModel>[];
     for (final json in results) {
-      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>));
+      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>, genreMap: genreMap));
     }
 
     // Cache movies - wrap in try-catch to handle RLS during heavy swiping
@@ -41,9 +46,14 @@ class MoviesRepository {
     );
     final results = data['results'] as List<dynamic>;
 
+    // Fetch genre list for mapping
+    final genreData = await _tmdbApi.getGenreList();
+    final genres = genreData['genres'] as List<dynamic>;
+    final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
+
     final movies = <MovieModel>[];
     for (final json in results) {
-      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>));
+      movies.add(MovieModel.fromTmdb(json as Map<String, dynamic>, genreMap: genreMap));
     }
 
     try {
@@ -82,9 +92,14 @@ class MoviesRepository {
     final data = await _tmdbApi.searchMovies(query: query);
     final results = data['results'] as List<dynamic>;
 
+    // Fetch genre list for mapping
+    final genreData = await _tmdbApi.getGenreList();
+    final genres = genreData['genres'] as List<dynamic>;
+    final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
+
     final movies = <MovieModel>[];
     for (final json in results) {
-      final movie = MovieModel.fromTmdb(json as Map<String, dynamic>);
+      final movie = MovieModel.fromTmdb(json as Map<String, dynamic>, genreMap: genreMap);
       movies.add(movie);
     }
 
@@ -111,10 +126,7 @@ class MoviesRepository {
       final data = await _tmdbApi.getMovieDetails(tmdbId: tmdbId);
       final movie = MovieModel.fromTmdb(data);
 
-      // Get genre names from filter if available
-      final genreData = await _tmdbApi.getGenreList();
-      final genres = genreData['genres'] as List<dynamic>;
-      final genreMap = {for (var g in genres) g['id']: g['name']};
+      // Get genre names from TMDB details response directly
       final genreNames = (data['genres'] as List<dynamic>?)
           ?.map((g) => g['name'] as String?)
           .whereType<String>()
