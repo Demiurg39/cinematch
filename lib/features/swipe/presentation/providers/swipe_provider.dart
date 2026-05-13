@@ -14,6 +14,7 @@ SwipeDeckState swipeDeckState(SwipeDeckStateRef ref) {
     movies: [],
     seenTmdbIds: {},
     isLoading: true,
+    mlRecommendedTmdbIds: {},
   );
 }
 
@@ -43,6 +44,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       movies: [],
       seenTmdbIds: {},
       isLoading: true,
+      mlRecommendedTmdbIds: {},
     );
   }
 
@@ -62,6 +64,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       movies: [],
       seenTmdbIds: {},
       isLoading: true,
+      mlRecommendedTmdbIds: {},
     );
     await _initialize();
   }
@@ -73,10 +76,10 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
     List<MovieModel> movies = [];
+    List<MovieModel> mlMovies = [];
 
     if (selectedGenres.isNotEmpty) {
       // Try ML first with genre filter (personalized + genre-matched)
-      List<MovieModel> mlMovies = [];
       if (userId != null) {
         mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
         if (mlMovies.isNotEmpty) {
@@ -106,9 +109,11 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       }
     } else if (userId != null) {
       // Try ML recommendations first if user has history
-      movies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
+      mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
 
-      if (movies.isEmpty) {
+      if (mlMovies.isNotEmpty) {
+        movies = mlMovies;
+      } else {
         // Cold start - no ML data yet, fall back to cached/popular
         final cached = await repository.getCachedMovies(limit: _initialLoadSize);
         if (cached.isNotEmpty) {
@@ -117,6 +122,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
             movies: cached,
             seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
             isLoading: false,
+            mlRecommendedTmdbIds: {},
           );
           _refreshMissingDetails(cached);
           _loadMoreInBackground();
@@ -134,6 +140,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           movies: cached,
           seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
           isLoading: false,
+          mlRecommendedTmdbIds: {},
         );
         _refreshMissingDetails(cached);
         _loadMoreInBackground();
@@ -151,10 +158,14 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
     movies.shuffle();
 
+    // Track which movies came from ML recommendations
+    final mlTmdbIds = mlMovies.map((m) => m.tmdbId).toSet();
+
     state = SwipeDeckState(
       movies: movies,
       seenTmdbIds: {...state.seenTmdbIds, ...movies.map((m) => m.tmdbId).toSet()},
       isLoading: false,
+      mlRecommendedTmdbIds: mlTmdbIds,
     );
 
     _refreshMissingDetails(movies);
@@ -188,6 +199,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       movies: updatedMovies,
       seenTmdbIds: state.seenTmdbIds,
       isLoading: false,
+      mlRecommendedTmdbIds: state.mlRecommendedTmdbIds,
     );
   }
 
@@ -206,6 +218,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       movies: updatedDeck,
       seenTmdbIds: updatedSeen,
       isLoading: false,
+      mlRecommendedTmdbIds: state.mlRecommendedTmdbIds.where((id) => id != movie.tmdbId).toSet(),
     );
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -238,17 +251,19 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
       List<MovieModel> newMovies = [];
       bool genreExhausted = false;
+      final newMlTmdbIds = <int>{};
+      List<MovieModel> mlMovies = [];
 
       if (selectedGenres.isNotEmpty) {
         // Try ML first even with genre filter (personalized + genre-matched)
-        final userId = Supabase.instance.client.auth.currentUser?.id;
         if (userId != null) {
-          final mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+          mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
           if (mlMovies.isNotEmpty) {
             // Filter ML results by selected genres client-side
             newMovies = mlMovies.where((m) {
               return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
             }).toList();
+            newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
           }
         }
 
@@ -265,8 +280,11 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         }
       } else if (userId != null) {
         // Try ML recommendations for logged-in users
-        newMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
-        if (newMovies.isEmpty) {
+        mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+        if (mlMovies.isNotEmpty) {
+          newMovies = mlMovies;
+          newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
+        } else {
           // Fall back to popular
           newMovies = await repository.getPopularMovies(page: _currentPage);
           _currentPage++;
@@ -316,6 +334,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           movies: [...state.movies, ...newMovies],
           seenTmdbIds: newSeen,
           isLoading: false,
+          mlRecommendedTmdbIds: {...state.mlRecommendedTmdbIds, ...newMlTmdbIds},
         );
       }
     } catch (_) {
@@ -354,6 +373,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       movies: [],
       seenTmdbIds: {},
       isLoading: true,
+      mlRecommendedTmdbIds: {},
     );
     await _initialize();
   }
@@ -363,10 +383,12 @@ class SwipeDeckState {
   final List<MovieModel> movies;
   final Set<int> seenTmdbIds;
   final bool isLoading;
+  final Set<int> mlRecommendedTmdbIds;
 
   SwipeDeckState({
     required this.movies,
     required this.seenTmdbIds,
     required this.isLoading,
+    this.mlRecommendedTmdbIds = const {},
   });
 }

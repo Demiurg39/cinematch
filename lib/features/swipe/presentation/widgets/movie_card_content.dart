@@ -5,11 +5,13 @@ import 'package:cinematch/core/theme/app_theme.dart';
 class MovieCardContent extends StatelessWidget {
   final MovieModel movie;
   final bool showDetails;
+  final bool isMlRecommendation;
 
   const MovieCardContent({
     super.key,
     required this.movie,
     this.showDetails = true,
+    this.isMlRecommendation = false,
   });
 
   @override
@@ -53,6 +55,44 @@ class MovieCardContent extends StatelessWidget {
               Container(
                 color: AppColors.surfaceDark,
                 child: const Icon(Icons.movie, size: 80, color: Colors.white54),
+              ),
+
+            // ML recommendation badge
+            if (isMlRecommendation)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF667eea), Color(0xFF764ba)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF667eea).withValues(alpha: 0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'ML',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
 
             // Gradient overlay

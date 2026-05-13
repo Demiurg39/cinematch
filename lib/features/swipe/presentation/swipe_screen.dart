@@ -26,7 +26,10 @@ class SwipeScreen extends ConsumerWidget {
             ? const _LoadingState()
             : deckState.movies.isEmpty
                 ? const _EmptyState()
-                : _SwipeDeck(movies: deckState.movies),
+                : _SwipeDeck(
+                movies: deckState.movies,
+                mlRecommendedTmdbIds: deckState.mlRecommendedTmdbIds,
+              ),
       ),
     );
   }
@@ -182,7 +185,12 @@ class _EmptyState extends StatelessWidget {
 
 class _SwipeDeck extends ConsumerWidget {
   final List<MovieModel> movies;
-  const _SwipeDeck({required this.movies});
+  final Set<int> mlRecommendedTmdbIds;
+
+  const _SwipeDeck({
+    required this.movies,
+    required this.mlRecommendedTmdbIds,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -287,6 +295,7 @@ class _SwipeDeck extends ConsumerWidget {
                           child: MovieCardContent(
                             movie: movies[1],
                             showDetails: false,
+                            isMlRecommendation: mlRecommendedTmdbIds.contains(movies[1].tmdbId),
                           ),
                         ),
                       ),
@@ -304,7 +313,10 @@ class _SwipeDeck extends ConsumerWidget {
                       onSwipeLeft: () => _onSwipe(context, ref, movies[0], SwipeAction.dislike),
                       onSwipeUp: () => _onSwipe(context, ref, movies[0], SwipeAction.veto),
                       onSwipeDown: () => _onSwipe(context, ref, movies[0], SwipeAction.maybe),
-                      child: MovieCardContent(movie: movies[0]),
+                      child: MovieCardContent(
+                        movie: movies[0],
+                        isMlRecommendation: mlRecommendedTmdbIds.contains(movies[0].tmdbId),
+                      ),
                     ),
                   ),
                 ),
