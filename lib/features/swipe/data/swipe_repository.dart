@@ -20,7 +20,25 @@ class SwipeRepository {
       movieDbId = cached?['id'] as String?;
     }
 
-    if (movieDbId == null) return; // Can't record swipe without valid movie
+    // If movie still not in DB, insert it first
+    if (movieDbId == null) {
+      final now = DateTime.now().toIso8601String();
+      final inserted = await _client.from('movies').upsert({
+        'tmdb_id': movie.tmdbId,
+        'title': movie.title,
+        'overview': movie.overview,
+        'year': movie.year,
+        'poster_url': movie.posterUrl,
+        'genres': movie.genres,
+        'popularity': movie.popularity,
+        'runtime': movie.runtime,
+        'cached_at': now,
+        'last_synced_at': now,
+      }, onConflict: 'tmdb_id').select('id').maybeSingle();
+      movieDbId = inserted?['id'] as String?;
+    }
+
+    if (movieDbId == null) return; // Still can't record
 
     await _client.from('swipes').insert({
       'user_id': userId,

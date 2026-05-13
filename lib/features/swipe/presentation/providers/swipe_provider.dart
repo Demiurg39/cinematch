@@ -108,18 +108,13 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         }
       }
     } else if (userId != null) {
-      // Try ML recommendations first if user has actual preferences
+      // Try ML recommendations first if user has history
       mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
 
       if (mlMovies.isNotEmpty) {
-        final prefs = await _getUserGenrePreferences(userId);
-        if (prefs.isNotEmpty) {
-          movies = mlMovies;
-        } else {
-          // No preferences yet - use popular movies directly
-          movies = await repository.getPopularMovies(page: _currentPage);
-          _currentPage++;
-        }
+        movies = mlMovies;
+        // Badge shows only if user has actual preferences
+        // But we still use ML movies - they may be better than popular
       } else {
         // No ML data - use popular movies directly
         movies = await repository.getPopularMovies(page: _currentPage);
@@ -229,18 +224,14 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           }
         }
       } else if (userId != null) {
-        // Try ML recommendations for logged-in users with actual preferences
+        // Try ML recommendations for logged-in users
         mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
         if (mlMovies.isNotEmpty) {
+          newMovies = mlMovies;
+          // Only mark as ML badge if user has actual preferences
           final prefs = await _getUserGenrePreferences(userId);
           if (prefs.isNotEmpty) {
-            // Only mark as ML if user has genre preferences (actual personalization)
-            newMovies = mlMovies;
             newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
-          } else {
-            // No preferences yet - use popular movies (not ML results which may be stale)
-            newMovies = await repository.getPopularMovies(page: _currentPage);
-            _currentPage++;
           }
         } else {
           // Fall back to popular
