@@ -108,11 +108,18 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         }
       }
     } else if (userId != null) {
-      // Try ML recommendations first if user has history
+      // Try ML recommendations first if user has actual preferences
       mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
 
       if (mlMovies.isNotEmpty) {
-        movies = mlMovies;
+        final prefs = await _getUserGenrePreferences(userId);
+        if (prefs.isNotEmpty) {
+          movies = mlMovies;
+        } else {
+          // No preferences yet - use popular movies directly
+          movies = await repository.getPopularMovies(page: _currentPage);
+          _currentPage++;
+        }
       } else {
         // No ML data - use popular movies directly
         movies = await repository.getPopularMovies(page: _currentPage);
@@ -222,18 +229,18 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           }
         }
       } else if (userId != null) {
-        // Try ML recommendations for logged-in users
+        // Try ML recommendations for logged-in users with actual preferences
         mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
         if (mlMovies.isNotEmpty) {
-          // Only mark as ML if user has genre preferences (actual personalization)
-          // For now, all movies have empty genres so check via get_user_genre_preferences
           final prefs = await _getUserGenrePreferences(userId);
           if (prefs.isNotEmpty) {
+            // Only mark as ML if user has genre preferences (actual personalization)
             newMovies = mlMovies;
             newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
           } else {
-            // No preferences yet - use ML results as fallback but don't mark as ML
-            newMovies = mlMovies;
+            // No preferences yet - use popular movies (not ML results which may be stale)
+            newMovies = await repository.getPopularMovies(page: _currentPage);
+            _currentPage++;
           }
         } else {
           // Fall back to popular
@@ -270,16 +277,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       // Completely exhausted
       if (newMovies.isEmpty) return;
 
-      // Filter seen only for non-genre (genre movies already filtered by TMDB)
-      // Note: We don't filter to empty - if all new movies are seen, show them anyway
-      // Otherwise user gets "all caught up" even when more movies exist
-      if (selectedGenres.isEmpty) {
-        final unseenMovies = newMovies.where((m) => !state.seenTmdbIds.contains(m.tmdbId)).toList();
-        if (unseenMovies.isNotEmpty) {
-          newMovies = unseenMovies;
-        }
-        // If no unseen movies, we keep all newMovies (some may be seen but better than nothing)
-      }
       newMovies.shuffle();
 
       if (newMovies.isNotEmpty) {
