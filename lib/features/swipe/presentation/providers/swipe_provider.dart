@@ -113,8 +113,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
       if (mlMovies.isNotEmpty) {
         movies = mlMovies;
-        // Badge shows only if user has actual preferences
-        // But we still use ML movies - they may be better than popular
       } else {
         // No ML data - use popular movies directly
         movies = await repository.getPopularMovies(page: _currentPage);
@@ -135,7 +133,14 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     movies.shuffle();
 
     // Track which movies came from ML recommendations
-    final mlTmdbIds = mlMovies.map((m) => m.tmdbId).toSet();
+    // Badge only shows if user has actual preferences (computed from their swipes)
+    Set<int> mlTmdbIds = {};
+    if (mlMovies.isNotEmpty) {
+      final prefs = await _getUserGenrePreferences(userId);
+      if (prefs.isNotEmpty) {
+        mlTmdbIds = mlMovies.map((m) => m.tmdbId).toSet();
+      }
+    }
 
     state = SwipeDeckState(
       movies: movies,
