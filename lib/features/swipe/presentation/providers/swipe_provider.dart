@@ -332,8 +332,14 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       if (newMovies.isEmpty) return;
 
       // Filter seen only for non-genre (genre movies already filtered by TMDB)
+      // Note: We don't filter to empty - if all new movies are seen, show them anyway
+      // Otherwise user gets "all caught up" even when more movies exist
       if (selectedGenres.isEmpty) {
-        newMovies = newMovies.where((m) => !state.seenTmdbIds.contains(m.tmdbId)).toList();
+        final unseenMovies = newMovies.where((m) => !state.seenTmdbIds.contains(m.tmdbId)).toList();
+        if (unseenMovies.isNotEmpty) {
+          newMovies = unseenMovies;
+        }
+        // If no unseen movies, we keep all newMovies (some may be seen but better than nothing)
       }
       newMovies.shuffle();
 
