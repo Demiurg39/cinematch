@@ -70,6 +70,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     final repository = ref.read(moviesRepositoryProvider);
     final genreFilter = ref.read(genreFilterNotifierProvider);
     final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
     List<MovieModel> movies;
 
@@ -89,17 +90,37 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         );
         _currentPage++;
       }
+    } else if (userId != null) {
+      // Try ML recommendations first if user has history
+      movies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
+
+      if (movies.isEmpty) {
+        // Cold start - no ML data yet, fall back to cached/popular
+        final cached = await repository.getCachedMovies(limit: _initialLoadSize);
+        if (cached.isNotEmpty) {
+          cached.shuffle();
+          state = SwipeDeckState(
+            movies: cached,
+            seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
+            isLoading: false,
+          );
+          _refreshMissingDetails(cached);
+          _loadMoreInBackground();
+          return;
+        }
+        movies = await repository.getPopularMovies(page: _currentPage);
+        _currentPage++;
+      }
     } else {
+      // No userId - use popular movies
       final cached = await repository.getCachedMovies(limit: _initialLoadSize);
       if (cached.isNotEmpty) {
         cached.shuffle();
-
         state = SwipeDeckState(
           movies: cached,
           seenTmdbIds: {...state.seenTmdbIds, ...cached.map((m) => m.tmdbId).toSet()},
           isLoading: false,
         );
-
         _refreshMissingDetails(cached);
         _loadMoreInBackground();
         return;
@@ -199,6 +220,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       final repository = ref.read(moviesRepositoryProvider);
       final genreFilter = ref.read(genreFilterNotifierProvider);
       final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+      final userId = Supabase.instance.client.auth.currentUser?.id;
 
       List<MovieModel> newMovies;
       bool genreExhausted = false;
@@ -214,7 +236,16 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         if (newMovies.isEmpty) {
           genreExhausted = true;
         }
+      } else if (userId != null) {
+        // Try ML recommendations for logged-in users
+        newMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+        if (newMovies.isEmpty) {
+          // Fall back to popular
+          newMovies = await repository.getPopularMovies(page: _currentPage);
+          _currentPage++;
+        }
       } else {
+        // No user - use popular
         newMovies = await repository.getPopularMovies(page: _currentPage);
         _currentPage++;
       }

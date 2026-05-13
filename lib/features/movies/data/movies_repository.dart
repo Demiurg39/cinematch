@@ -149,6 +149,40 @@ class MoviesRepository {
     return genres.map((g) => g as Map<String, dynamic>).toList();
   }
 
+  Future<List<MovieModel>> getRecommendedMovies({
+    required String userId,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _supabase.rpc('get_recommended_movies', params: {
+        'user_id_param': userId,
+        'exclude_swiped': true,
+        'limit_count': limit,
+      });
+
+      final results = response as List<dynamic>;
+      if (results.isEmpty) return [];
+
+      // Convert RPC result (without id field) to MovieModel using fromJson
+      return results.map((row) {
+        final json = Map<String, dynamic>.from(row as Map);
+        json['id'] = '';
+        json['tmdb_id'] = json['tmdb_id'];
+        json['title'] = json['title'];
+        json['overview'] = json['overview'];
+        json['year'] = json['year'];
+        json['poster_url'] = json['poster_url'];
+        json['genres'] = json['genres'] ?? [];
+        json['popularity'] = json['popularity'] ?? 0;
+        json['cached_at'] = DateTime.now().toIso8601String();
+        return MovieModel.fromJson(json);
+      }).toList();
+    } catch (e) {
+      // Fall back to empty list on error - caller handles fallback to popular
+      return [];
+    }
+  }
+
   Future<void> _cacheMovies(List<MovieModel> movies) async {
     if (movies.isEmpty) return;
     final batch = movies.map((movie) => {
