@@ -175,8 +175,11 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
   Future<void> _refreshMissingDetails(List<MovieModel> movies) async {
     final repository = ref.read(moviesRepositoryProvider);
 
-    // Find movies missing overview
-    final needsRefresh = movies.where((m) => m.overview == null || m.overview!.isEmpty).toList();
+    // Find movies missing overview OR genres
+    final needsRefresh = movies.where((m) =>
+      (m.overview == null || m.overview!.isEmpty) ||
+      (m.genres.isEmpty)
+    ).toList();
     if (needsRefresh.isEmpty) return;
 
     final refreshed = await Future.wait(
