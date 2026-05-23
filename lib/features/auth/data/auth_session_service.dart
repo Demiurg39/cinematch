@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,7 +12,7 @@ class AuthSessionService {
   static const _userIdKey = 'cached_user_id';
 
   Future<void> saveSession(Session session) async {
-    await _storage.write(key: _sessionKey, value: session.toJson().toString());
+    await _storage.write(key: _sessionKey, value: jsonEncode(session.toJson()));
     await _storage.write(key: _userIdKey, value: session.user.id);
   }
 
@@ -28,5 +29,16 @@ class AuthSessionService {
     final session = await _storage.read(key: _sessionKey);
     final userId = await _storage.read(key: _userIdKey);
     return session != null && userId != null;
+  }
+
+  Future<Session?> restoreSessionFromStorage() async {
+    final sessionJson = await _storage.read(key: _sessionKey);
+    if (sessionJson == null) return null;
+    try {
+      return Session.fromJson(jsonDecode(sessionJson) as Map<String, dynamic>);
+    } catch (_) {
+      await clearSession();
+      return null;
+    }
   }
 }

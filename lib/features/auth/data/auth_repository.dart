@@ -17,17 +17,10 @@ class AuthRepository {
     return UserModel.fromJson(response);
   }
 
-  Stream<UserModel?> authStateChanges() {
-    return _client.auth.onAuthStateChange.map((event) async {
-      final session = event.session;
-      if (session == null) return null;
-
-      final userId = session.user.id;
-      final response = await _client.from('users').select().eq('id', userId).maybeSingle();
-
-      if (response == null) return null;
-      return UserModel.fromJson(response);
-    }).asyncMap((future) => future);
+  Future<UserModel?> getCurrentUserById(String userId) async {
+    final response = await _client.from('users').select().eq('id', userId).maybeSingle();
+    if (response == null) return null;
+    return UserModel.fromJson(response);
   }
 
   Future<UserModel> signInWithEmail({
@@ -39,10 +32,14 @@ class AuthRepository {
       password: password,
     );
 
-    final userId = response.user!.id;
+    final user = response.user;
+    if (user == null) {
+      throw Exception('Sign in failed. No user returned.');
+    }
+
+    final userId = user.id;
     var userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
 
-    // Auto-create profile if missing (handles manually-created auth users)
     if (userResponse == null) {
       await _client.from('users').insert({'id': userId, 'username': email.split('@').first});
       userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
@@ -65,9 +62,13 @@ class AuthRepository {
       password: password,
     );
 
-    final userId = response.user!.id;
+    final user = response.user;
+    if (user == null) {
+      throw Exception('Sign up failed. No user returned.');
+    }
 
-    // Create user profile
+    final userId = user.id;
+
     await _client.from('users').insert({'id': userId, 'username': username});
 
     final userResponse = await _client.from('users').select().eq('id', userId).maybeSingle();
@@ -80,7 +81,10 @@ class AuthRepository {
   }
 
   Future<void> signInWithGoogle() async {
-    await _client.auth.signInWithOAuth(OAuthProvider.google);
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'io.supabase.cinematch://login-callback',
+    );
   }
 
   Future<void> signOut() async {
@@ -107,7 +111,6 @@ class AuthRepository {
     try {
       await _client.from('users').update(updates).eq('id', userId);
     } catch (e) {
-      // Silently fail - don't log out user for settings update failure
       return;
     }
   }

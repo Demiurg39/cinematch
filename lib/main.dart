@@ -11,6 +11,7 @@ Future<void> main() async {
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
+    authFlowType: AuthFlowType.pkce,
   );
 
   runApp(
