@@ -57,7 +57,6 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
     _animController.reset();
 
     final startOffset = _dragPosition;
-    final startRotation = _dragPosition.dx / 1500;
 
     final offsetAnim = _animController.drive(
       Tween(begin: startOffset, end: Offset.zero).chain(CurveTween(curve: Curves.elasticOut)),
@@ -212,7 +211,8 @@ class _SwipeCardState extends State<SwipeCard> with TickerProviderStateMixin {
         transform: Matrix4.identity()
           ..setTranslationRaw(_dragPosition.dx, _dragPosition.dy, 0)
           ..rotateZ(rotation)
-          ..scale(scale),
+          // ignore: deprecated_member_use
+          ..scale(scale, scale, 1.0),
         alignment: Alignment.bottomCenter, // Pivot from bottom
         child: Stack(
           children: [

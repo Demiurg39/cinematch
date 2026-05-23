@@ -32,23 +32,25 @@ class MovieCardContent extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Poster image - use w1280 for full screen quality
-            if (movie.posterUrl != null)
+            // Poster image - w500 is universally available on TMDB, good quality for mobile
+            if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
               Image.network(
-                movie.posterUrl!.replaceAll('/w500/', '/w1280/'),
+                movie.posterUrl!,
                 fit: BoxFit.cover,
-                cacheWidth: 1280,
                 gaplessPlayback: true,
                 loadingBuilder: (_, child, loadingProgress) {
                   if (loadingProgress == null) return child;
+                  if (loadingProgress.expectedTotalBytes == null) return child;
                   return _ShimmerPlaceholder(
                     progress: loadingProgress.cumulativeBytesLoaded /
-                        (loadingProgress.expectedTotalBytes ?? 1),
+                        loadingProgress.expectedTotalBytes!,
                   );
                 },
-                errorBuilder: (_, _, _) => Container(
+                errorBuilder: (_, __, ___) => Container(
                   color: AppColors.surfaceDark,
-                  child: const Icon(Icons.movie, size: 80, color: Colors.white54),
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 60, color: Colors.white38),
+                  ),
                 ),
               )
             else

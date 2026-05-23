@@ -175,7 +175,7 @@ class MoviesRepository {
       final results = response as List<dynamic>;
       if (results.isEmpty) return [];
 
-      // Convert RPC result (without id field) to MovieModel using fromJson
+      // Convert RPC result to MovieModel
       return results.map((row) {
         final json = Map<String, dynamic>.from(row as Map);
         json['id'] = json['out_movie_id'] ?? '';
@@ -185,7 +185,7 @@ class MoviesRepository {
         json['year'] = json['out_year'];
         json['poster_url'] = json['out_poster_url'];
         json['genres'] = json['out_genres'] ?? [];
-        json['popularity'] = json['out_popularity'] ?? 0;
+        json['popularity'] = (json['out_popularity'] as num?)?.toDouble() ?? 0;
         json['cached_at'] = DateTime.now().toIso8601String();
         return MovieModel.fromJson(json);
       }).toList();
@@ -253,6 +253,21 @@ class MoviesRepository {
       'last_synced_at': DateTime.now().toIso8601String(),
     }).toList();
     await _supabase.from('movies').upsert(batch, onConflict: 'tmdb_id');
+
+    // Generate embeddings for newly cached movies in background
+    _generateEmbeddings(moviesWithGenres);
+  }
+
+  Future<void> _generateEmbeddings(List<MovieModel> movies) async {
+    for (final movie in movies) {
+      try {
+        await _supabase.rpc('generate_movie_embedding', params: {
+          'p_movie_id': movie.id,
+        });
+      } catch (_) {
+        // Silently skip - embeddings will be generated on next cache
+      }
+    }
   }
 
   Future<int> refreshMoviesWithoutGenres({int batchSize = 10}) async {
@@ -311,9 +326,39 @@ class MoviesRepository {
   Future<List<Map<String, dynamic>>> getUserGenrePreferences(String userId) async {
     try {
       final response = await _supabase.rpc('get_user_genre_preferences', params: {
-        'user_id_param': userId,
+        'p_user_id': userId,
       });
       return (response as List<dynamic>).cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<MovieModel>> getVectorRecommendations({
+    required String userId,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _supabase.rpc('get_vector_recommendations', params: {
+        'p_user_id': userId,
+        'p_limit_count': limit,
+      });
+
+      final results = response as List<dynamic>;
+      if (results.isEmpty) return [];
+
+      return results.map((row) {
+        final json = Map<String, dynamic>.from(row as Map);
+        json['id'] = json['out_movie_id'] ?? '';
+        json['tmdb_id'] = json['out_tmdb_id'];
+        json['title'] = json['out_title'];
+        json['year'] = json['out_year'];
+        json['poster_url'] = json['out_poster_url'];
+        json['genres'] = json['out_genres'] ?? [];
+        json['popularity'] = (json['out_popularity'] as num?)?.toDouble() ?? 0;
+        json['cached_at'] = DateTime.now().toIso8601String();
+        return MovieModel.fromJson(json);
+      }).toList();
     } catch (e) {
       return [];
     }

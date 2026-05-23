@@ -79,11 +79,20 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     List<MovieModel> mlMovies = [];
 
     if (selectedGenres.isNotEmpty) {
-      // Try ML first with genre filter (personalized + genre-matched)
+      // Try vector recs first (pgvector-based, most personalized)
       if (userId != null) {
+        mlMovies = await repository.getVectorRecommendations(userId: userId, limit: _initialLoadSize);
+        if (mlMovies.isNotEmpty) {
+          movies = mlMovies.where((m) {
+            return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
+          }).toList();
+        }
+      }
+
+      // Fall back to existing ML recs (RPC-based)
+      if (movies.isEmpty && userId != null) {
         mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
         if (mlMovies.isNotEmpty) {
-          // Filter ML results by selected genres client-side
           movies = mlMovies.where((m) {
             return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
           }).toList();
@@ -98,7 +107,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         );
         _currentPage++;
 
-        // If empty, retry
         if (movies.isEmpty) {
           movies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
@@ -108,8 +116,13 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         }
       }
     } else if (userId != null) {
-      // Try ML recommendations first if user has history
-      mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
+      // Try vector recs first (pgvector-based)
+      mlMovies = await repository.getVectorRecommendations(userId: userId, limit: _initialLoadSize);
+
+      if (mlMovies.isEmpty) {
+        // Fall back to existing ML recs (RPC-based)
+        mlMovies = await repository.getRecommendedMovies(userId: userId, limit: _initialLoadSize);
+      }
 
       if (mlMovies.isNotEmpty) {
         movies = mlMovies;
@@ -133,13 +146,10 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     movies.shuffle();
 
     // Track which movies came from ML recommendations
-    // Badge only shows if user has actual preferences (computed from their swipes)
+    // Badge shows for any ML-returned movie (even cold-start users get ML recommendations)
     Set<int> mlTmdbIds = {};
     if (mlMovies.isNotEmpty) {
-      final prefs = await _getUserGenrePreferences(userId);
-      if (prefs.isNotEmpty) {
-        mlTmdbIds = mlMovies.map((m) => m.tmdbId).toSet();
-      }
+      mlTmdbIds = mlMovies.map((m) => m.tmdbId).toSet();
     }
 
     state = SwipeDeckState(
@@ -204,11 +214,21 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       List<MovieModel> mlMovies = [];
 
       if (selectedGenres.isNotEmpty) {
-        // Try ML first even with genre filter (personalized + genre-matched)
+        // Try vector recs first
         if (userId != null) {
+          mlMovies = await repository.getVectorRecommendations(userId: userId, limit: 30);
+          if (mlMovies.isNotEmpty) {
+            newMovies = mlMovies.where((m) {
+              return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
+            }).toList();
+            newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
+          }
+        }
+
+        // Fall back to existing ML recs
+        if (newMovies.isEmpty && userId != null) {
           mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
           if (mlMovies.isNotEmpty) {
-            // Filter ML results by selected genres client-side
             newMovies = mlMovies.where((m) {
               return m.genres.any((g) => selectedGenres.contains(_genreNameToId(g)));
             }).toList();
@@ -218,7 +238,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 
         // If ML didn't return genre-matched movies, use TMDB discover
         if (newMovies.isEmpty) {
-          newMlTmdbIds.clear(); // Clear ML tracking since we're using TMDB now
+          newMlTmdbIds.clear();
           newMovies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
             page: _currentPage,
@@ -229,19 +249,22 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           }
         }
       } else if (userId != null) {
-        // Try ML recommendations for logged-in users
-        mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+        // Try vector recs first
+        mlMovies = await repository.getVectorRecommendations(userId: userId, limit: 30);
         if (mlMovies.isNotEmpty) {
           newMovies = mlMovies;
-          // Only mark as ML badge if user has actual preferences
-          final prefs = await _getUserGenrePreferences(userId);
-          if (prefs.isNotEmpty) {
-            newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
-          }
+          newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
         } else {
-          // Fall back to popular
-          newMovies = await repository.getPopularMovies(page: _currentPage);
-          _currentPage++;
+          // Fall back to existing ML recs
+          mlMovies = await repository.getRecommendedMovies(userId: userId, limit: 30);
+          if (mlMovies.isNotEmpty) {
+            newMovies = mlMovies;
+            newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
+          } else {
+            // Fall back to popular
+            newMovies = await repository.getPopularMovies(page: _currentPage);
+            _currentPage++;
+          }
         }
       } else {
         // No user - use popular
@@ -314,18 +337,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     return genreMap[genreName] ?? 0;
   }
 
-  Future<Map<String, double>> _getUserGenrePreferences(String userId) async {
-    try {
-      final repository = ref.read(moviesRepositoryProvider);
-      final prefs = await repository.getUserGenrePreferences(userId);
-      return Map.fromEntries(
-        prefs.map((p) => MapEntry(p['genre'] as String, p['weight'] as double))
-      );
-    } catch (_) {
-      return {};
-    }
-  }
-
   Future<void> refresh() async {
     _currentPage = 1;
     state = SwipeDeckState(
@@ -335,6 +346,157 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       mlRecommendedTmdbIds: {},
     );
     await _initialize();
+  }
+}
+
+@riverpod
+class PopularDeckNotifier extends _$PopularDeckNotifier {
+  int _currentPage = 1;
+
+  @override
+  SwipeDeckState build() {
+    ref.listen(genreFilterNotifierProvider, (prev, next) {
+      final prevGenres = (prev?['selectedGenres'] as List<int>?) ?? [];
+      final nextGenres = (next['selectedGenres'] as List<int>?) ?? [];
+      if (!_listEquals(prevGenres, nextGenres)) {
+        Future.microtask(() => _onGenreChanged());
+      }
+    });
+
+    Future.microtask(() => _load());
+
+    return SwipeDeckState(
+      movies: [],
+      seenTmdbIds: {},
+      isLoading: true,
+    );
+  }
+
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    final sortedA = List<int>.from(a)..sort();
+    final sortedB = List<int>.from(b)..sort();
+    for (int i = 0; i < sortedA.length; i++) {
+      if (sortedA[i] != sortedB[i]) return false;
+    }
+    return true;
+  }
+
+  Future<void> _onGenreChanged() async {
+    _currentPage = 1;
+    state = SwipeDeckState(
+      movies: [],
+      seenTmdbIds: {},
+      isLoading: true,
+    );
+    await _load();
+  }
+
+  Future<void> _load() async {
+    final repository = ref.read(moviesRepositoryProvider);
+    final genreFilter = ref.read(genreFilterNotifierProvider);
+    final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+
+    List<MovieModel> movies = [];
+
+    if (selectedGenres.isNotEmpty) {
+      movies = await repository.discoverMoviesByGenre(
+        genreIds: selectedGenres,
+        page: _currentPage,
+      );
+      _currentPage++;
+    } else {
+      movies = await repository.getPopularMovies(page: _currentPage);
+      _currentPage++;
+    }
+
+    if (movies.isEmpty) {
+      movies = await repository.getPopularMovies(page: _currentPage);
+      _currentPage++;
+    }
+
+    movies.shuffle();
+
+    state = SwipeDeckState(
+      movies: movies,
+      seenTmdbIds: {...movies.map((m) => m.tmdbId).toSet()},
+      isLoading: false,
+    );
+  }
+
+  Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
+    final currentDeck = state.movies;
+    final updatedDeck = currentDeck.where((m) => m.tmdbId != movie.tmdbId).toList();
+    final updatedSeen = {...state.seenTmdbIds, movie.tmdbId};
+
+    state = SwipeDeckState(
+      movies: updatedDeck,
+      seenTmdbIds: updatedSeen,
+      isLoading: false,
+    );
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      ref.read(swipeRepositoryProvider).recordSwipe(
+        userId: userId,
+        movie: movie,
+        action: action,
+      ).catchError((_) {});
+    }
+
+    if (updatedDeck.length < 45) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (state.isLoading) return;
+    if (state.movies.length >= 45) return;
+
+    try {
+      final repository = ref.read(moviesRepositoryProvider);
+      final genreFilter = ref.read(genreFilterNotifierProvider);
+      final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+
+      List<MovieModel> newMovies = [];
+
+      if (selectedGenres.isNotEmpty) {
+        newMovies = await repository.discoverMoviesByGenre(
+          genreIds: selectedGenres,
+          page: _currentPage,
+        );
+        _currentPage++;
+      } else {
+        newMovies = await repository.getPopularMovies(page: _currentPage);
+        _currentPage++;
+      }
+
+      if (newMovies.isEmpty) {
+        newMovies = await repository.getPopularMovies(page: _currentPage);
+        _currentPage++;
+      }
+
+      if (newMovies.isEmpty) return;
+
+      newMovies.shuffle();
+
+      final newSeen = {...state.seenTmdbIds, ...newMovies.map((m) => m.tmdbId).toSet()};
+      state = SwipeDeckState(
+        movies: [...state.movies, ...newMovies],
+        seenTmdbIds: newSeen,
+        isLoading: false,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> refresh() async {
+    _currentPage = 1;
+    state = SwipeDeckState(
+      movies: [],
+      seenTmdbIds: {},
+      isLoading: true,
+    );
+    await _load();
   }
 }
 

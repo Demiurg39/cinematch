@@ -108,7 +108,9 @@ class _IndicatorButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(isPressed ? 0.9 : 1.0),
+        transform: Matrix4.identity()
+        // ignore: deprecated_member_use
+        ..scale(isPressed ? 0.9 : 1.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

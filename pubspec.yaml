@@ -39,6 +39,7 @@ dependencies:
   json_annotation: ^4.9.0
   confetti: ^0.8.0
   url_launcher: ^6.3.1
+  flutter_secure_storage: ^10.2.0
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +55,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
   http: any
+  mocktail: ^1.0.5
 flutter:
 
   # The following line ensures that the Material Icons font is

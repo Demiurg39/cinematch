@@ -17,6 +17,7 @@ in {
     nodejs
     chromium
     secretspec
+    libsecret
   ];
 
   android = {

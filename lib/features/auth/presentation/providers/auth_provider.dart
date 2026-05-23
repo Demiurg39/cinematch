@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../data/auth_repository.dart';
+import '../../data/auth_session_service.dart';
 import '../../domain/auth_state.dart';
 
 part 'auth_provider.g.dart';
@@ -10,10 +13,64 @@ AuthRepository authRepository(AuthRepositoryRef ref) {
 }
 
 @riverpod
+AuthSessionService authSessionService(AuthSessionServiceRef ref) {
+  return AuthSessionService();
+}
+
+@riverpod
 class AuthNotifier extends _$AuthNotifier {
+  StreamSubscription? _authSubscription;
+
   @override
   AsyncValue<AuthState> build() {
+    // Listen to Supabase auth state changes to restore session
+    _authSubscription ??= Supabase.instance.client.auth.onAuthStateChange.listen(
+      (data) async {
+        final session = data.session;
+        if (session != null) {
+          final service = ref.read(authSessionServiceProvider);
+          await service.saveSession(session);
+          final repository = ref.read(authRepositoryProvider);
+          final user = await repository.getCurrentUser();
+          if (user != null) {
+            state = AsyncData(AuthAuthenticated(user));
+          }
+        }
+      },
+    );
+
+    ref.onDispose(() => _authSubscription?.cancel());
+
     return const AsyncData(AuthUnauthenticated());
+  }
+
+  Future<void> restoreSession() async {
+    state = const AsyncLoading();
+    try {
+      final service = ref.read(authSessionServiceProvider);
+      final hasSession = await service.hasSession();
+      if (!hasSession) {
+        state = const AsyncData(AuthUnauthenticated());
+        return;
+      }
+
+      // Supabase client auto-restores from its own storage
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        final repository = ref.read(authRepositoryProvider);
+        final user = await repository.getCurrentUser();
+        if (user != null) {
+          state = AsyncData(AuthAuthenticated(user));
+          return;
+        }
+      }
+
+      // Session cookie expired or invalid
+      await service.clearSession();
+      state = const AsyncData(AuthUnauthenticated());
+    } catch (e) {
+      state = const AsyncData(AuthUnauthenticated());
+    }
   }
 
   void resetError() {
@@ -71,6 +128,8 @@ class AuthNotifier extends _$AuthNotifier {
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {
+      final service = ref.read(authSessionServiceProvider);
+      await service.clearSession();
       final repository = ref.read(authRepositoryProvider);
       await repository.signOut();
       state = const AsyncData(AuthUnauthenticated());

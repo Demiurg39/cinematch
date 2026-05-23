@@ -23,7 +23,26 @@ final authRepositoryProvider = AutoDisposeProvider<AuthRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthRepositoryRef = AutoDisposeProviderRef<AuthRepository>;
-String _$authNotifierHash() => r'b59fb9e8e5485c14de77662676ff8a920466f833';
+String _$authSessionServiceHash() =>
+    r'ff83a1559f74d3bc12254976874803eeb4f3ac3a';
+
+/// See also [authSessionService].
+@ProviderFor(authSessionService)
+final authSessionServiceProvider =
+    AutoDisposeProvider<AuthSessionService>.internal(
+      authSessionService,
+      name: r'authSessionServiceProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$authSessionServiceHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef AuthSessionServiceRef = AutoDisposeProviderRef<AuthSessionService>;
+String _$authNotifierHash() => r'dc0d2ea8a331b53da6a857b0a2b5c098abf06b0d';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

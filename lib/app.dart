@@ -7,12 +7,30 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/settings/presentation/providers/settings_provider.dart';
 import 'app/app_shell.dart';
 
-class CinematchApp extends ConsumerWidget {
+class CinematchApp extends ConsumerStatefulWidget {
   const CinematchApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Theme always dark for now
+  ConsumerState<CinematchApp> createState() => _CinematchAppState();
+}
+
+class _CinematchAppState extends ConsumerState<CinematchApp> {
+  bool _sessionCheckDone = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_sessionCheckDone) {
+      _sessionCheckDone = true;
+      // Try to restore session from secure storage on first build
+      Future.microtask(() {
+        ref.read(authNotifierProvider.notifier).restoreSession();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(themeModeNotifierProvider);
 
     return MaterialApp(
