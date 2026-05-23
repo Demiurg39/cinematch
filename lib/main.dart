@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/constants/app_constants.dart';
@@ -12,5 +13,13 @@ Future<void> main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
-  runApp(const ProviderScope(child: CinematchApp()));
+  runApp(
+    DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        return ProviderScope(
+          child: CinematchApp(dynamicDarkScheme: darkDynamic),
+        );
+      },
+    ),
+  );
 }

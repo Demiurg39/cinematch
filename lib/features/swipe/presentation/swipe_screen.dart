@@ -178,6 +178,13 @@ class _PersonalizedTab extends ConsumerWidget {
     if (deckState.isLoading) return const _LoadingState();
     if (deckState.movies.isEmpty) return const _EmptyState();
 
+    // Pre-cache poster images for smoother card transitions
+    for (final movie in deckState.movies) {
+      if (movie.posterUrl != null) {
+        precacheImage(NetworkImage(movie.posterUrl!), context);
+      }
+    }
+
     return _SwipeDeck(
       movies: deckState.movies,
       mlRecommendedTmdbIds: deckState.mlRecommendedTmdbIds,
@@ -199,6 +206,13 @@ class _PopularTab extends ConsumerWidget {
     if (deckState.isLoading) return const _LoadingState();
     if (deckState.movies.isEmpty) return const _EmptyState();
 
+    // Pre-cache poster images for smoother card transitions
+    for (final movie in deckState.movies) {
+      if (movie.posterUrl != null) {
+        precacheImage(NetworkImage(movie.posterUrl!), context);
+      }
+    }
+
     return _SwipeDeck(
       movies: deckState.movies,
       mlRecommendedTmdbIds: deckState.mlRecommendedTmdbIds,
@@ -217,44 +231,74 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppColors.primaryGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryPink.withValues(alpha: 0.4),
-                  blurRadius: 24,
-                ),
-              ],
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Colors.white,
-                ),
+          _ShimmerCard(),
+          const SizedBox(height: 24),
+          _ShimmerCard(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerCard extends StatefulWidget {
+  @override
+  State<_ShimmerCard> createState() => _ShimmerCardState();
+}
+
+class _ShimmerCardState extends State<_ShimmerCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AnimatedBuilder(
+        animation: _shimmerController,
+        builder: (context, _) {
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                begin: Alignment(-1 + 2 * _shimmerController.value, 0),
+                end: Alignment(-0.5 + 2 * _shimmerController.value, 0),
+                colors: const [
+                  AppColors.surfaceDark,
+                  Color(0xFF2A2A3E),
+                  AppColors.surfaceDark,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ).createShader(bounds);
+            },
+            child: Container(
+              width: double.infinity,
+              height: size.height * 0.55,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Loading movies...',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

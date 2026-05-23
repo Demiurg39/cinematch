@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cinematch/app/app_shell.dart';
+import 'package:cinematch/features/swipe/presentation/providers/swipe_provider.dart';
+
+class _MockSwipeDeckNotifier extends SwipeDeckNotifier {
+  @override
+  SwipeDeckState build() {
+    return SwipeDeckState(
+      movies: [],
+      seenTmdbIds: {},
+      isLoading: false,
+      mlRecommendedTmdbIds: {},
+    );
+  }
+}
+
+class _MockPopularDeckNotifier extends PopularDeckNotifier {
+  @override
+  SwipeDeckState build() {
+    return SwipeDeckState(
+      movies: [],
+      seenTmdbIds: {},
+      isLoading: false,
+    );
+  }
+}
 
 void main() {
-  setUp(() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     try {
-      Supabase.initialize(
+      await Supabase.initialize(
         url: 'https://test-project.supabase.co',
         anonKey: 'test-anon-key',
       );
@@ -17,8 +43,12 @@ void main() {
   group('AppShell', () {
     testWidgets('renders bottom navigation with 4 destinations', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: AppShell()),
+        ProviderScope(
+          overrides: [
+            swipeDeckNotifierProvider.overrideWith(() => _MockSwipeDeckNotifier()),
+            popularDeckNotifierProvider.overrideWith(() => _MockPopularDeckNotifier()),
+          ],
+          child: const MaterialApp(home: AppShell()),
         ),
       );
 
@@ -31,8 +61,12 @@ void main() {
 
     testWidgets('shows SwipeScreen by default', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: AppShell()),
+        ProviderScope(
+          overrides: [
+            swipeDeckNotifierProvider.overrideWith(() => _MockSwipeDeckNotifier()),
+            popularDeckNotifierProvider.overrideWith(() => _MockPopularDeckNotifier()),
+          ],
+          child: const MaterialApp(home: AppShell()),
         ),
       );
 
@@ -41,8 +75,12 @@ void main() {
 
     testWidgets('can tap on Rooms navigation item', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: AppShell()),
+        ProviderScope(
+          overrides: [
+            swipeDeckNotifierProvider.overrideWith(() => _MockSwipeDeckNotifier()),
+            popularDeckNotifierProvider.overrideWith(() => _MockPopularDeckNotifier()),
+          ],
+          child: const MaterialApp(home: AppShell()),
         ),
       );
 

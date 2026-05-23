@@ -11,7 +11,7 @@ void main() {
     testWidgets('TabBar renders Personalized and Popular tabs', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.darkTheme,
+          theme: AppTheme.amoledDark(null),
           home: DefaultTabController(
             length: 2,
             child: Scaffold(
@@ -48,7 +48,7 @@ void main() {
     testWidgets('Tab switching works', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.darkTheme,
+          theme: AppTheme.amoledDark(null),
           home: DefaultTabController(
             length: 2,
             child: Scaffold(

@@ -8,7 +8,9 @@ import 'features/settings/presentation/providers/settings_provider.dart';
 import 'app/app_shell.dart';
 
 class CinematchApp extends ConsumerStatefulWidget {
-  const CinematchApp({super.key});
+  final ColorScheme? dynamicDarkScheme;
+
+  const CinematchApp({super.key, this.dynamicDarkScheme});
 
   @override
   ConsumerState<CinematchApp> createState() => _CinematchAppState();
@@ -22,7 +24,6 @@ class _CinematchAppState extends ConsumerState<CinematchApp> {
     super.didChangeDependencies();
     if (!_sessionCheckDone) {
       _sessionCheckDone = true;
-      // Try to restore session from secure storage on first build
       Future.microtask(() {
         ref.read(authNotifierProvider.notifier).restoreSession();
       });
@@ -36,8 +37,8 @@ class _CinematchAppState extends ConsumerState<CinematchApp> {
     return MaterialApp(
       title: 'Cinematch',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.amoledDark(widget.dynamicDarkScheme),
+      darkTheme: AppTheme.amoledDark(widget.dynamicDarkScheme),
       themeMode: ThemeMode.dark,
       home: ref.watch(authNotifierProvider).when(
         loading: () => const Scaffold(

@@ -20,16 +20,20 @@ class RoomsScreen extends ConsumerWidget {
             return const Center(child: Text('No rooms yet. Create or join one!'));
           }
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: rooms.length,
             itemBuilder: (context, index) {
               final room = rooms[index];
-              return ListTile(
-                title: Text(room.name),
-                subtitle: Text('Code: ${room.code}'),
-                trailing: Chip(label: Text(room.status.name)),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => RoomLobbyScreen(roomId: room.id)),
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: Text(room.name),
+                  subtitle: Text('Code: ${room.code}'),
+                  trailing: Chip(label: Text(room.status.name)),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => RoomLobbyScreen(roomId: room.id)),
+                  ),
                 ),
               );
             },

@@ -25,24 +25,28 @@ class FriendsScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Friend Requests', style: TextStyle(fontWeight: FontWeight.bold)),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text('Friend Requests',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  ...requests.map((req) => ListTile(
-                    leading: CircleAvatar(child: Text(req.friendUsername[0].toUpperCase())),
-                    title: Text(req.friendUsername),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.check, color: Colors.green),
-                          onPressed: () => ref.read(friendRequestsNotifierProvider.notifier).accept(req.id),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          onPressed: () => ref.read(friendRequestsNotifierProvider.notifier).reject(req.id),
-                        ),
-                      ],
+                  ...requests.map((req) => Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: ListTile(
+                      leading: CircleAvatar(child: Text(req.friendUsername[0].toUpperCase())),
+                      title: Text(req.friendUsername),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check, color: Colors.green),
+                            onPressed: () => ref.read(friendRequestsNotifierProvider.notifier).accept(req.id),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () => ref.read(friendRequestsNotifierProvider.notifier).reject(req.id),
+                          ),
+                        ],
+                      ),
                     ),
                   )),
                 ],
@@ -58,17 +62,21 @@ class FriendsScreen extends ConsumerWidget {
                   return const Center(child: Text('No friends yet'));
                 }
                 return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: friends.length,
                   itemBuilder: (context, index) {
                     final friend = friends[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Text(friend.friendUsername[0].toUpperCase()),
-                      ),
-                      title: Text(friend.friendUsername),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.person_remove, color: Colors.red),
-                        onPressed: () => ref.read(friendsNotifierProvider.notifier).remove(friend.friendId),
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(friend.friendUsername[0].toUpperCase()),
+                        ),
+                        title: Text(friend.friendUsername),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.person_remove, color: Colors.red),
+                          onPressed: () => ref.read(friendsNotifierProvider.notifier).remove(friend.friendId),
+                        ),
                       ),
                     );
                   },

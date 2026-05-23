@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cinematch/app.dart';
 
 void main() {
-  testWidgets('Cinematch app smoke test', (WidgetTester tester) async {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     try {
       await Supabase.initialize(
         url: 'https://test-project.supabase.co',
@@ -13,7 +15,9 @@ void main() {
     } catch (_) {
       // Already initialized
     }
+  });
 
+  testWidgets('Cinematch app smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: CinematchApp(),
@@ -21,7 +25,6 @@ void main() {
     );
     await tester.pump();
 
-    // App should show auth screen or loading when Supabase is not fully configured
     expect(find.byType(ProviderScope), findsOneWidget);
   });
 }

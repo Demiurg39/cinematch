@@ -475,23 +475,11 @@ class _FormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.textMuted.withValues(alpha: 0.08),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
         children: [
           Text(
             isSignUp ? 'Create Account' : 'Welcome Back',
@@ -612,6 +600,7 @@ class _FormCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
