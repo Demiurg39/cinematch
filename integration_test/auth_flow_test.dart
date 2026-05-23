@@ -10,7 +10,6 @@ import 'package:cinematch/features/auth/domain/auth_state.dart';
 import 'package:cinematch/features/auth/domain/user_model.dart';
 import 'package:cinematch/features/auth/data/auth_session_service.dart';
 import 'package:cinematch/features/settings/presentation/profile_screen.dart';
-import 'package:cinematch/app.dart';
 
 // ─── Mock Notifiers ─────────────────────────────────────────────────
 
@@ -74,9 +73,23 @@ class _SessionRestoreNotifier extends AuthNotifier {
   }
 }
 
+class _SessionRestoreToUnauthenticatedNotifier extends AuthNotifier {
+  bool restoreCalled = false;
+
+  @override
+  AsyncValue<AuthState> build() {
+    return const AsyncLoading();
+  }
+
+  @override
+  Future<void> restoreSession() async {
+    restoreCalled = true;
+    state = const AsyncData(AuthUnauthenticated());
+  }
+}
+
 class _ProfileUpdateNotifier extends AuthNotifier {
   bool signOutTriggered = false;
-  bool updateCalled = false;
 
   @override
   AsyncValue<AuthState> build() {
@@ -108,6 +121,28 @@ class _SignInErrorNotifier extends AuthNotifier {
   }
 }
 
+class _SignUpErrorNotifier extends AuthNotifier {
+  int signUpAttempts = 0;
+
+  @override
+  AsyncValue<AuthState> build() {
+    return const AsyncData(AuthUnauthenticated());
+  }
+
+  @override
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+    required String username,
+  }) async {
+    signUpAttempts++;
+    state = AsyncError(
+      'Password should be at least 6 characters',
+      StackTrace.current,
+    );
+  }
+}
+
 class _EmptyAuthNotifier extends AuthNotifier {
   @override
   AsyncValue<AuthState> build() {
@@ -135,6 +170,34 @@ Widget createProfileApp(AuthNotifier notifier) {
   );
 }
 
+/// Minimal app that mirrors CinematchApp routing without Supabase dependencies
+Widget routingApp(AuthNotifier notifier) {
+  return ProviderScope(
+    overrides: [
+      authNotifierProvider.overrideWith(() => notifier),
+    ],
+    child: MaterialApp(
+      home: Consumer(
+        builder: (context, ref, _) {
+          final authState = ref.watch(authNotifierProvider);
+          return authState.when<Widget>(
+            loading: () => const AuthScreen(),
+            error: (_, __) => const AuthScreen(),
+            data: (state) {
+              if (state is AuthAuthenticated) {
+                return const Scaffold(
+                  body: Center(child: Text('AUTHENTICATED_DASHBOARD')),
+                );
+              }
+              return const AuthScreen();
+            },
+          );
+        },
+      ),
+    ),
+  );
+}
+
 Future<void> switchToSignUp(WidgetTester tester) async {
   await tester.ensureVisible(
     find.byWidgetPredicate((w) =>
@@ -148,6 +211,18 @@ Future<void> switchToSignUp(WidgetTester tester) async {
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
+}
+
+extension WidgetTesterDefensive on WidgetTester {
+  Future<void> assertFormInteractive() async {
+    expect(find.byType(TextFormField).first, findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  }
+
+  Future<void> assertNoCrashScreen() async {
+    expect(find.byType(AuthScreen), findsOneWidget);
+    expect(find.text('Error:'), findsNothing);
+  }
 }
 
 void main() {
@@ -165,25 +240,20 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Switch to sign-up mode
       await switchToSignUp(tester);
 
-      // Verify registration UI elements present
       expect(find.text('Create Account'), findsOneWidget);
       expect(find.text('Get Started'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(3));
 
-      // Fill all fields
       await tester.enterText(find.byType(TextFormField).at(0), 'newuser');
       await tester.enterText(find.byType(TextFormField).at(1), 'new@example.com');
       await tester.enterText(find.byType(TextFormField).at(2), 'password123');
 
-      // Submit
       await tester.tap(find.text('Get Started'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Verify notifier called and state transitioned
       expect(notifier.signUpCalled, true);
       expect(notifier.state.valueOrNull, isA<AuthAuthenticated>());
     });
@@ -195,7 +265,6 @@ void main() {
 
       await switchToSignUp(tester);
 
-      // Skip username, fill email and password
       await tester.enterText(find.byType(TextFormField).at(1), 'new@example.com');
       await tester.enterText(find.byType(TextFormField).at(2), 'password123');
 
@@ -207,17 +276,16 @@ void main() {
   });
 
   // ──────────────────────────────────────────────────────────────────
-  // SCENARIO 2: Persistent Login & Hot Restart (Positive)
+  // SCENARIO 2: Session Persistence — Hot Restart Resilience (Positive)
   // ──────────────────────────────────────────────────────────────────
   group('Scenario 2: Session Persistence After Restart', () {
     testWidgets('AuthSessionService save and restore session data',
-        () async {
+        (_) async {
       FlutterSecureStorage.setMockInitialValues({});
       final service = AuthSessionService();
 
       expect(await service.hasSession(), false);
 
-      // Simulate session save as after login
       final storage = FlutterSecureStorage();
       await storage.write(
         key: 'supabase_session',
@@ -229,7 +297,7 @@ void main() {
       expect(await service.getCachedUserId(), 'test-user-id');
     });
 
-    testWidgets('restoreSession bypasses login and goes to authenticated',
+    testWidgets('routing app bypasses auth screen when session restores',
         (tester) async {
       FlutterSecureStorage.setMockInitialValues({
         'supabase_session': '{"access_token":"test_jwt"}',
@@ -238,18 +306,46 @@ void main() {
 
       final notifier = _SessionRestoreNotifier();
 
-      await tester.pumpWidget(createAuthApp(notifier));
+      await tester.pumpWidget(routingApp(notifier));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
+      // Initially loading — should show AuthScreen (not black loading screen)
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsNothing);
+
+      // Restore session
       await notifier.restoreSession();
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
+      // Should now show dashboard, not AuthScreen
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsOneWidget);
+      expect(find.byType(AuthScreen), findsNothing);
       expect(notifier.restoreCalled, true);
-      expect(notifier.state.valueOrNull, isA<AuthAuthenticated>());
     });
 
-    testWidgets('clearSession removes all stored data', () async {
+    testWidgets('routing app shows auth screen when session restore fails',
+        (tester) async {
+      final notifier = _SessionRestoreToUnauthenticatedNotifier();
+
+      await tester.pumpWidget(routingApp(notifier));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsNothing);
+
+      await notifier.restoreSession();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Still on AuthScreen — no redirect to dashboard
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsNothing);
+    });
+
+    testWidgets('clearSession removes all stored data', (_) async {
       FlutterSecureStorage.setMockInitialValues({
         'supabase_session': '{"access_token":"test_jwt"}',
         'cached_user_id': 'test-user-id',
@@ -275,26 +371,21 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Verify profile displays user info
       expect(find.text('testuser'), findsOneWidget);
       expect(find.text('Member since 2025'), findsOneWidget);
       expect(find.text('Edit Username'), findsOneWidget);
 
-      // Open edit dialog
       await tester.tap(find.text('Edit Username'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Dialog appears with Save/Cancel
       expect(find.text('Save'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
 
-      // Cancel
       await tester.tap(find.text('Cancel'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Still on profile — no redirect
       expect(find.byType(ProfileScreen), findsOneWidget);
       expect(notifier.signOutTriggered, false);
       expect(notifier.state.valueOrNull, isA<AuthAuthenticated>());
@@ -317,7 +408,7 @@ void main() {
   // SCENARIO 4: Invalid Email Validation (Negative)
   // ──────────────────────────────────────────────────────────────────
   group('Scenario 4: Invalid Email Input Validation', () {
-    testWidgets('blocks submission when email missing @ symbol',
+    testWidgets('blocks submission when email missing @',
         (tester) async {
       await tester.pumpWidget(createAuthApp(_EmptyAuthNotifier()));
       await tester.pump();
@@ -336,6 +427,8 @@ void main() {
       await tester.pump();
 
       expect(find.text('Enter a valid email'), findsOneWidget);
+      await tester.assertNoCrashScreen();
+      await tester.assertFormInteractive();
     });
 
     testWidgets('blocks submission when email field empty', (tester) async {
@@ -352,6 +445,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Email is required'), findsOneWidget);
+      await tester.assertNoCrashScreen();
     });
   });
 
@@ -359,7 +453,8 @@ void main() {
   // SCENARIO 5: Weak Password Validation (Negative)
   // ──────────────────────────────────────────────────────────────────
   group('Scenario 5: Weak Password Validation', () {
-    testWidgets('blocks submission when password too short', (tester) async {
+    testWidgets('client-side blocks password shorter than 6 chars',
+        (tester) async {
       await tester.pumpWidget(createAuthApp(_EmptyAuthNotifier()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -377,9 +472,11 @@ void main() {
       await tester.pump();
 
       expect(find.text('Must be at least 6 characters'), findsOneWidget);
+      await tester.assertNoCrashScreen();
+      await tester.assertFormInteractive();
     });
 
-    testWidgets('blocks submission when password field empty', (tester) async {
+    testWidgets('client-side blocks empty password', (tester) async {
       await tester.pumpWidget(createAuthApp(_EmptyAuthNotifier()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -394,13 +491,68 @@ void main() {
 
       expect(find.text('Password is required'), findsOneWidget);
     });
+
+    testWidgets('API weak-password error shows inline banner, no black screen',
+        (tester) async {
+      final notifier = _SignUpErrorNotifier();
+
+      await tester.pumpWidget(createAuthApp(notifier));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await switchToSignUp(tester);
+
+      // Use password that passes client validation (>=6 chars) but fails API
+      await tester.enterText(find.byType(TextFormField).at(0), 'newuser');
+      await tester.enterText(find.byType(TextFormField).at(1), 'new@example.com');
+      await tester.enterText(find.byType(TextFormField).at(2), 'weakapi123');
+
+      await tester.tap(find.text('Get Started'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Scroll to error banner at top of form
+      await tester.ensureVisible(
+        find.text('Password is too weak. Use 6+ characters.'),
+      );
+      await tester.pump();
+
+      expect(find.text('Password is too weak. Use 6+ characters.'), findsOneWidget);
+      expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+      await tester.assertNoCrashScreen();
+      expect(find.byType(AuthScreen), findsOneWidget);
+      await tester.assertFormInteractive();
+      expect(notifier.signUpAttempts, 1);
+    });
+
+    testWidgets('routing app shows AuthScreen on sign-up API error, not crash',
+        (tester) async {
+      final notifier = _SignUpErrorNotifier();
+
+      await tester.pumpWidget(routingApp(notifier));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await notifier.signUpWithEmail(
+        email: 'new@example.com',
+        password: 'weakapi123',
+        username: 'newuser',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.text('Error:'), findsNothing);
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsNothing);
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────
   // SCENARIO 6: Wrong Credentials Error Handling (Negative)
   // ──────────────────────────────────────────────────────────────────
   group('Scenario 6: Wrong Credentials Error Handling', () {
-    testWidgets('shows error banner on failed sign-in', (tester) async {
+    testWidgets('shows inline error banner on failed sign-in',
+        (tester) async {
       final notifier = _SignInErrorNotifier();
 
       await tester.pumpWidget(createAuthApp(notifier));
@@ -420,16 +572,36 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Error banner with user-friendly message
       expect(find.text('Wrong email or password.'), findsOneWidget);
       expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
-
-      // User remains on auth screen
+      await tester.assertNoCrashScreen();
       expect(find.byType(AuthScreen), findsOneWidget);
       expect(notifier.signInAttempts, 1);
+      await tester.assertFormInteractive();
     });
 
-    testWidgets('error banner dismissible', (tester) async {
+    testWidgets('routing app shows AuthScreen on sign-in API error',
+        (tester) async {
+      final notifier = _SignInErrorNotifier();
+
+      await tester.pumpWidget(routingApp(notifier));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await notifier.signInWithEmail(
+        email: 'bad@example.com',
+        password: 'badpass',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.text('Error:'), findsNothing);
+      expect(find.text('AUTHENTICATED_DASHBOARD'), findsNothing);
+    });
+
+    testWidgets('error banner dismissible, form reusable after dismiss',
+        (tester) async {
       final notifier = _SignInErrorNotifier();
 
       await tester.pumpWidget(createAuthApp(notifier));
@@ -457,12 +629,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Wrong email or password.'), findsNothing);
+      await tester.assertFormInteractive();
     });
 
-    testWidgets('error state resets back to unauthenticated', (tester) async {
+    testWidgets('error state resets back to unauthenticated',
+        (tester) async {
       final notifier = _SignInErrorNotifier();
 
-      // Pump widget to initialize the notifier in the widget tree
       await tester.pumpWidget(createAuthApp(notifier));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -482,6 +655,36 @@ void main() {
 
       expect(notifier.state.valueOrNull, isA<AuthUnauthenticated>());
       expect(notifier.signInAttempts, 1);
+    });
+
+    testWidgets('remains on AuthScreen after consecutive errors',
+        (tester) async {
+      final notifier = _SignInErrorNotifier();
+
+      await tester.pumpWidget(createAuthApp(notifier));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await notifier.signInWithEmail(
+        email: 'bad@example.com',
+        password: 'badpass',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(notifier.signInAttempts, 1);
+
+      await notifier.signInWithEmail(
+        email: 'bad2@example.com',
+        password: 'badpass2',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(AuthScreen), findsOneWidget);
+      await tester.assertNoCrashScreen();
+      expect(notifier.signInAttempts, 2);
     });
   });
 }

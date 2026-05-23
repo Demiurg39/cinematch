@@ -40,13 +40,9 @@ class _CinematchAppState extends ConsumerState<CinematchApp> {
       theme: AppTheme.amoledDark(widget.dynamicDarkScheme),
       darkTheme: AppTheme.amoledDark(widget.dynamicDarkScheme),
       themeMode: ThemeMode.dark,
-      home: ref.watch(authNotifierProvider).when(
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-        error: (e, _) => Scaffold(
-          body: Center(child: Text('Error: $e')),
-        ),
+      home: ref.watch(authNotifierProvider).when<Widget>(
+        loading: () => const AuthScreen(),
+        error: (_, __) => const AuthScreen(),
         data: (state) {
           if (state is AuthAuthenticated) {
             return const AppShell();
