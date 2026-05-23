@@ -10,7 +10,7 @@ CREATE TYPE swipe_direction AS ENUM ('like', 'dislike', 'maybe', 'veto');
 CREATE TYPE watchlist_status AS ENUM ('watching', 'plan_to_watch', 'watched', 'dropped');
 CREATE TYPE room_status AS ENUM ('active', 'archived', 'completed');
 CREATE TYPE match_threshold AS ENUM ('unanimous', 'majority', 'half');
-CREATE TYPE friendship_status AS ENUM ('pending', 'accepted');
+CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
 
 -- =============================================================================
 -- TABLES
@@ -107,19 +107,32 @@ CREATE TABLE public.match_users (
 
 -- Partners
 CREATE TABLE public.partners (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_a_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     user_b_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'pending',
+    invite_code TEXT,
     linked_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_a_id, user_b_id)
+    CONSTRAINT partners_unique_pair UNIQUE (user_a_id, user_b_id)
+);
+
+-- Partner Watch History (shared analytics)
+CREATE TABLE public.partner_watch_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    partner_link_id UUID NOT NULL REFERENCES public.partners(id) ON DELETE CASCADE,
+    movie_id UUID NOT NULL REFERENCES public.movies(id) ON DELETE CASCADE,
+    added_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    watched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Friendships
 CREATE TABLE public.friendships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     friend_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     status friendship_status DEFAULT 'pending',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, friend_id)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Clusters (ML centroids)
@@ -151,6 +164,8 @@ CREATE INDEX idx_rooms_status ON public.rooms(status);
 CREATE INDEX idx_friendships_user ON public.friendships(user_id, status);
 CREATE INDEX idx_watchlists_user ON public.watchlists(user_id);
 CREATE INDEX idx_watchlists_deleted ON public.watchlists(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_partner_watch_history_partner ON public.partner_watch_history(partner_link_id);
+CREATE INDEX idx_partner_watch_history_movie ON public.partner_watch_history(movie_id);
 
 -- =============================================================================
 -- MATCH DETECTION TRIGGER
@@ -225,6 +240,7 @@ ALTER TABLE public.partners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clusters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_cluster_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.partner_watch_history ENABLE ROW LEVEL SECURITY;
 
 -- Users: public read, own write
 CREATE POLICY "Users are viewable by everyone" ON public.users FOR SELECT USING (true);
@@ -306,6 +322,44 @@ CREATE POLICY "Match participants can view match users" ON public.match_users FO
 CREATE POLICY "Partners can view each other" ON public.partners FOR SELECT
     USING (auth.uid() = user_a_id OR auth.uid() = user_b_id);
 
+CREATE POLICY "Users can send partner requests" ON public.partners FOR INSERT
+    WITH CHECK (auth.uid() = user_a_id);
+
+CREATE POLICY "Users can update partner requests" ON public.partners FOR UPDATE
+    USING (auth.uid() = user_a_id OR auth.uid() = user_b_id);
+
+CREATE POLICY "Users can delete partner links" ON public.partners FOR DELETE
+    USING (auth.uid() = user_a_id OR auth.uid() = user_b_id);
+
+-- Partner Watch History RLS
+CREATE POLICY "Partner members can view watch history" ON public.partner_watch_history FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.partners
+            WHERE id = public.partner_watch_history.partner_link_id
+            AND (user_a_id = auth.uid() OR user_b_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Partner members can add watch history" ON public.partner_watch_history FOR INSERT
+    WITH CHECK (
+        auth.uid() = added_by
+        AND EXISTS (
+            SELECT 1 FROM public.partners
+            WHERE id = partner_link_id
+            AND (user_a_id = auth.uid() OR user_b_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Partner members can delete watch history" ON public.partner_watch_history FOR DELETE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.partners
+            WHERE id = public.partner_watch_history.partner_link_id
+            AND (user_a_id = auth.uid() OR user_b_id = auth.uid())
+        )
+    );
+
 -- Friendships: participants can view
 CREATE POLICY "Friends can view each other" ON public.friendships FOR SELECT
     USING (auth.uid() = user_id OR auth.uid() = friend_id);
@@ -314,6 +368,9 @@ CREATE POLICY "Users can send friend requests" ON public.friendships FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can accept own requests" ON public.friendships FOR UPDATE
+    USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+CREATE POLICY "Users can delete friendships" ON public.friendships FOR DELETE
     USING (auth.uid() = user_id OR auth.uid() = friend_id);
 
 -- Clusters: authenticated read
@@ -359,3 +416,4 @@ CREATE POLICY "Authenticated users can upload posters" ON storage.objects
 -- Enable realtime for match notifications
 ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.swipes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.partner_watch_history;

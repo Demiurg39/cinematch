@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/swipe/presentation/swipe_screen.dart';
 import '../features/rooms/presentation/rooms_screen.dart';
-import '../features/friends/presentation/friends_screen.dart';
+import '../features/friends/presentation/social_hub_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -18,7 +18,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   final _screens = const [
     SwipeScreen(),
     RoomsScreen(),
-    FriendsScreen(),
+    SocialHubScreen(),
     SettingsScreen(),
   ];
 
