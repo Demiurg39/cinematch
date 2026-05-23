@@ -231,20 +231,32 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
-      child: Column(
-        children: [
-          _ShimmerCard(),
-          const SizedBox(height: 24),
-          _ShimmerCard(),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Divide available space between 2 cards with 24px gap + 32px padding
+        final gap = 24.0;
+        final padding = 32.0;
+        final cardHeight = (constraints.maxHeight - gap - padding) / 2;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+          child: Column(
+            children: [
+              _ShimmerCard(height: cardHeight),
+              const SizedBox(height: 24),
+              _ShimmerCard(height: cardHeight),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _ShimmerCard extends StatefulWidget {
+  final double height;
+
+  const _ShimmerCard({required this.height});
+
   @override
   State<_ShimmerCard> createState() => _ShimmerCardState();
 }
@@ -270,36 +282,32 @@ class _ShimmerCardState extends State<_ShimmerCard>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: AnimatedBuilder(
-        animation: _shimmerController,
-        builder: (context, _) {
-          return ShaderMask(
-            shaderCallback: (bounds) {
-              return LinearGradient(
-                begin: Alignment(-1 + 2 * _shimmerController.value, 0),
-                end: Alignment(-0.5 + 2 * _shimmerController.value, 0),
-                colors: const [
-                  AppColors.surfaceDark,
-                  Color(0xFF2A2A3E),
-                  AppColors.surfaceDark,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ).createShader(bounds);
-            },
-            child: Container(
-              width: double.infinity,
-              height: size.height * 0.55,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, _) {
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: Alignment(-1 + 2 * _shimmerController.value, 0),
+              end: Alignment(-0.5 + 2 * _shimmerController.value, 0),
+              colors: const [
+                AppColors.surfaceDark,
+                Color(0xFF2A2A3E),
+                AppColors.surfaceDark,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ).createShader(bounds);
+          },
+          child: Container(
+            width: double.infinity,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
