@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:cinematch/features/movies/domain/movie_model.dart';
 import 'package:cinematch/features/movies/presentation/providers/movies_provider.dart';
 import 'package:cinematch/features/movies/presentation/movie_detail_screen.dart';
 import 'package:cinematch/core/theme/app_theme.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class MovieCardContent extends ConsumerStatefulWidget {
   final MovieModel movie;
@@ -37,7 +38,7 @@ class _MovieCardContentState extends ConsumerState<MovieCardContent> {
 
   @override
   void dispose() {
-    _youtubeController?.dispose();
+    _youtubeController?.close();
     super.dispose();
   }
 
@@ -49,18 +50,24 @@ class _MovieCardContentState extends ConsumerState<MovieCardContent> {
     }
   }
 
-  void _onPosterTap(BuildContext context) {
+  Future<void> _onPosterTap(BuildContext context) async {
     if (_trailerKey != null && _trailerKey!.isNotEmpty) {
-      _youtubeController = YoutubePlayerController(
-        initialVideoId: _trailerKey!,
-        flags: const YoutubePlayerFlags(
+      try {
+        _youtubeController = YoutubePlayerController.fromVideoId(
+          videoId: _trailerKey!,
           autoPlay: true,
-          mute: false,
-          controlsVisibleAtStart: true,
-          hideThumbnail: true,
-        ),
-      );
-      setState(() => _showTrailer = true);
+          params: const YoutubePlayerParams(
+            mute: false,
+            showControls: true,
+            showFullscreenButton: false,
+          ),
+        );
+        setState(() => _showTrailer = true);
+      } catch (_) {
+        // WebView not available — open in external browser
+        final uri = Uri.parse('https://www.youtube.com/watch?v=$_trailerKey');
+        if (mounted) await launchUrl(uri);
+      }
     } else {
       // No trailer available — navigate to details
       Navigator.push(
@@ -142,7 +149,6 @@ class _MovieCardContentState extends ConsumerState<MovieCardContent> {
               if (_showTrailer && _youtubeController != null)
                 YoutubePlayer(
                   controller: _youtubeController!,
-                  showVideoProgressIndicator: true,
                   aspectRatio: 16 / 9,
                 )
               else
@@ -155,7 +161,7 @@ class _MovieCardContentState extends ConsumerState<MovieCardContent> {
                   right: 12,
                   child: GestureDetector(
                     onTap: () {
-                      _youtubeController?.pause();
+                      _youtubeController?.pauseVideo();
                       setState(() => _showTrailer = false);
                     },
                     child: Container(
@@ -173,41 +179,7 @@ class _MovieCardContentState extends ConsumerState<MovieCardContent> {
                   ),
                 ),
 
-              // Play overlay when poster is shown and trailer available
-              if (!_showTrailer && _trailerKey != null && _trailerKey!.isNotEmpty)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: () => _onPosterTap(context),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.center,
-                          end: Alignment.center,
-                          colors: [
-                            Colors.black.withValues(alpha: 0),
-                            Colors.black.withValues(alpha: 0.3),
-                          ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.play_arrow_rounded,
-                            color: AppColors.primaryPink,
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
+              
               // ML recommendation badge
               if (widget.isMlRecommendation && !_showTrailer)
                 Positioned(

@@ -1,24 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:cinematch/features/movies/domain/movie_model.dart';
 import 'package:cinematch/core/theme/app_theme.dart';
 import 'providers/movies_provider.dart';
 
-class MovieDetailScreen extends ConsumerWidget {
+class MovieDetailScreen extends ConsumerStatefulWidget {
   final MovieModel movie;
 
   const MovieDetailScreen({super.key, required this.movie});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final watchProvidersAsync = ref.watch(watchProvidersNotifierProvider(movie.tmdbId));
+  ConsumerState<MovieDetailScreen> createState() => _MovieDetailScreenState();
+}
+
+class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
+  String? _trailerKey;
+  bool _showTrailer = false;
+  YoutubePlayerController? _youtubeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchTrailer();
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.close();
+    super.dispose();
+  }
+
+  Future<void> _prefetchTrailer() async {
+    final repo = ref.read(moviesRepositoryProvider);
+    final key = await repo.getMovieTrailerKey(widget.movie.tmdbId);
+    if (mounted) {
+      setState(() => _trailerKey = key);
+    }
+  }
+
+  Future<void> _playTrailer() async {
+    if (_trailerKey == null || _trailerKey!.isEmpty) return;
+    try {
+      _youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: _trailerKey!,
+        autoPlay: true,
+        params: const YoutubePlayerParams(
+          mute: false,
+          showControls: true,
+          showFullscreenButton: true,
+        ),
+      );
+      setState(() => _showTrailer = true);
+    } catch (_) {
+      // WebView not available — open in external browser
+      final uri = Uri.parse('https://www.youtube.com/watch?v=$_trailerKey');
+      if (mounted) await launchUrl(uri);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final watchProvidersAsync = ref.watch(watchProvidersNotifierProvider(widget.movie.tmdbId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: CustomScrollView(
         slivers: [
-          // Hero poster with gradient
+          // Hero poster with trailer support
           SliverAppBar(
             expandedHeight: 400,
             pinned: true,
@@ -27,39 +77,102 @@ class MovieDetailScreen extends ConsumerWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Poster
-                  if (movie.posterUrl != null)
-                    Image.network(
-                      movie.posterUrl!.replaceAll('/w500/', '/w1280/'),
-                      fit: BoxFit.cover,
+                  // Poster or Trailer
+                  if (_showTrailer && _youtubeController != null)
+                    YoutubePlayer(
+                      controller: _youtubeController!,
+                      aspectRatio: 16 / 9,
                     )
-                  else
-                    Container(
-                      color: AppColors.cardDark,
-                      child: const Icon(
-                        Icons.movie,
-                        size: 100,
-                        color: Colors.white54,
+                  else ...[
+                    // Poster
+                    if (widget.movie.posterUrl != null)
+                      Image.network(
+                        widget.movie.posterUrl!.replaceAll('/w500/', '/w1280/'),
+                        fit: BoxFit.cover,
+                      )
+                    else
+                      Container(
+                        color: AppColors.cardDark,
+                        child: const Icon(
+                          Icons.movie,
+                          size: 100,
+                          color: Colors.white54,
+                        ),
                       ),
-                    ),
 
-                  // Gradient overlay
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            AppColors.backgroundDark.withValues(alpha: 0.5),
-                            AppColors.backgroundDark,
-                          ],
-                          stops: const [0.0, 0.7, 1.0],
+                    // Gradient overlay
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              AppColors.backgroundDark.withValues(alpha: 0.5),
+                              AppColors.backgroundDark,
+                            ],
+                            stops: const [0.0, 0.7, 1.0],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
+
+                  // Close button when trailer playing
+                  if (_showTrailer)
+                    Positioned(
+                      top: 48,
+                      right: 16,
+                      child: GestureDetector(
+                        onTap: () {
+                          _youtubeController?.pauseVideo();
+                          setState(() => _showTrailer = false);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Play button when poster shown and trailer available
+                  if (!_showTrailer && _trailerKey != null && _trailerKey!.isNotEmpty)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: _playTrailer,
+                        child: Center(
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.play_arrow_rounded,
+                              color: AppColors.primaryPink,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -74,7 +187,7 @@ class MovieDetailScreen extends ConsumerWidget {
                 children: [
                   // Title
                   Text(
-                    movie.title,
+                    widget.movie.title,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 28,
@@ -89,22 +202,22 @@ class MovieDetailScreen extends ConsumerWidget {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      if (movie.year != null)
+                      if (widget.movie.year != null)
                         _MetaChip(
                           icon: Icons.calendar_today,
-                          label: '${movie.year}',
+                          label: '${widget.movie.year}',
                         ),
-                      if (movie.runtime != null)
+                      if (widget.movie.runtime != null)
                         _MetaChip(
                           icon: Icons.schedule,
-                          label: '${movie.runtime} min',
+                          label: '${widget.movie.runtime} min',
                         ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
                   // Genres
-                  if (movie.genres.isNotEmpty) ...[
+                  if (widget.movie.genres.isNotEmpty) ...[
                     const Text(
                       'Genres',
                       style: TextStyle(
@@ -117,7 +230,7 @@ class MovieDetailScreen extends ConsumerWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: movie.genres.take(5).map((genre) {
+                      children: widget.movie.genres.take(5).map((genre) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -142,7 +255,7 @@ class MovieDetailScreen extends ConsumerWidget {
                   ],
 
                   // Description
-                  if (movie.overview != null && movie.overview!.isNotEmpty)
+                  if (widget.movie.overview != null && widget.movie.overview!.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -172,7 +285,7 @@ class MovieDetailScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            movie.overview!,
+                            widget.movie.overview!,
                             style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
