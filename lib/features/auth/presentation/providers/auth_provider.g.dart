@@ -42,7 +42,7 @@ final authSessionServiceProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthSessionServiceRef = AutoDisposeProviderRef<AuthSessionService>;
-String _$authNotifierHash() => r'dc0d2ea8a331b53da6a857b0a2b5c098abf06b0d';
+String _$authNotifierHash() => r'496fe5751ad81727fcda969d80236a73210e3ba2';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

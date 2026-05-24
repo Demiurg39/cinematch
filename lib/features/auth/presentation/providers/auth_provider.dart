@@ -137,4 +137,16 @@ class AuthNotifier extends _$AuthNotifier {
       state = AsyncError(e, st);
     }
   }
+
+  Future<void> refreshCurrentUser() async {
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final user = await repository.getCurrentUser();
+      if (user != null) {
+        state = AsyncData(AuthAuthenticated(user));
+      }
+    } catch (_) {
+      // Silently fail — keep current state
+    }
+  }
 }
