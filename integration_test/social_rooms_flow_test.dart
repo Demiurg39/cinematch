@@ -11,6 +11,9 @@ import 'package:cinematch/features/rooms/presentation/providers/room_provider.da
 import 'package:cinematch/features/rooms/domain/room_model.dart';
 import 'package:cinematch/features/rooms/presentation/rooms_screen.dart';
 import 'package:cinematch/features/friends/presentation/social_hub_screen.dart';
+import 'package:cinematch/features/movies/domain/movie_model.dart';
+import 'package:cinematch/features/swipe/presentation/providers/swipe_provider.dart';
+import 'package:cinematch/features/swipe/presentation/swipe_screen.dart';
 
 // ─── Mock Data ────────────────────────────────────────────────────────
 
@@ -241,5 +244,134 @@ void main() {
 
       expect(find.text('ABC123'), findsOneWidget);
     });
+
+    // Test 5: Rating badge visible on movie card
+    testWidgets('5 - Rating badge displays on movie card', (tester) async {
+      final movie = MovieModel(
+        id: 'movie-1',
+        tmdbId: 550,
+        title: 'Fight Club',
+        genres: ['Drama'],
+        popularity: 100,
+        voteAverage: 8.8,
+        voteCount: 25000,
+        cachedAt: DateTime.now(),
+      );
+
+      final deckState = SwipeDeckState(
+        movies: [movie],
+        seenTmdbIds: {},
+        isLoading: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            swipeDeckNotifierProvider.overrideWith(
+              () => _MockSwipeDeckNotifier(deckState),
+            ),
+            popularDeckNotifierProvider.overrideWith(
+              () => _MockPopularDeckNotifier(SwipeDeckState(movies: [], seenTmdbIds: {}, isLoading: false)),
+            ),
+          ],
+          child: const MaterialApp(home: SwipeScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Rating badge should show 8.8
+      expect(find.text('Fight Club'), findsOneWidget);
+      expect(find.text('8.8'), findsOneWidget);
+    });
+
+    // Test 6: Long-press context menu on movie card
+    testWidgets('6 - Long-press opens context menu', (tester) async {
+      final movie = MovieModel(
+        id: 'movie-2',
+        tmdbId: 680,
+        title: 'Pulp Fiction',
+        genres: ['Crime'],
+        popularity: 95,
+        cachedAt: DateTime.now(),
+      );
+
+      final deckState = SwipeDeckState(
+        movies: [movie],
+        seenTmdbIds: {},
+        isLoading: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            swipeDeckNotifierProvider.overrideWith(
+              () => _MockSwipeDeckNotifier(deckState),
+            ),
+            popularDeckNotifierProvider.overrideWith(
+              () => _MockPopularDeckNotifier(SwipeDeckState(movies: [], seenTmdbIds: {}, isLoading: false)),
+            ),
+          ],
+          child: const MaterialApp(home: SwipeScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Long-press on card
+      await tester.longPress(find.text('Pulp Fiction'));
+      await tester.pumpAndSettle();
+
+      // Context menu should appear
+      expect(find.text('View Details'), findsOneWidget);
+      expect(find.text('Add to List'), findsOneWidget);
+      expect(find.text('Watch Later'), findsOneWidget);
+    });
+
+    // Test 7: Room dashboard shows capacity chip
+    testWidgets('7 - Capacity chip displayed in room dashboard', (tester) async {
+      final room = _createRoom(
+        status: RoomStatus.lobby,
+        timerEndAt: DateTime.now().add(const Duration(minutes: 5)),
+      );
+      // RoomModel with maxParticipants = 4 (default)
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            myRoomsNotifierProvider.overrideWith(
+              () => _MockMyRoomsNotifier(() => [room]),
+            ),
+            publicRoomsNotifierProvider.overrideWith(
+              () => _MockPublicRoomsNotifier(() => _emptyRoomStream()),
+            ),
+            activeRoomNotifierProvider('room-1').overrideWith(
+              () => _MockActiveRoomNotifier(() => Stream.value(room)),
+            ),
+          ],
+          child: const MaterialApp(home: RoomsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ABC123'), findsOneWidget);
+      expect(find.text('Cap: 4'), findsOneWidget);
+    });
   });
+}
+
+// ─── Additional Mocks ───────────────────────────────────────────────────
+
+class _MockSwipeDeckNotifier extends SwipeDeckNotifier {
+  final SwipeDeckState _state;
+  _MockSwipeDeckNotifier(this._state);
+
+  @override
+  SwipeDeckState build() => _state;
+}
+
+class _MockPopularDeckNotifier extends PopularDeckNotifier {
+  final SwipeDeckState _state;
+  _MockPopularDeckNotifier(this._state);
+
+  @override
+  SwipeDeckState build() => _state;
 }

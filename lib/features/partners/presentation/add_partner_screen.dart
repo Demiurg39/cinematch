@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/partners_provider.dart';
+import '../domain/partner_model.dart';
+import '../../friends/domain/friendship_model.dart';
+import '../../friends/presentation/providers/friends_provider.dart';
 
 class AddPartnerScreen extends ConsumerStatefulWidget {
   const AddPartnerScreen({super.key});
@@ -13,10 +16,10 @@ class AddPartnerScreen extends ConsumerStatefulWidget {
 class _AddPartnerScreenState extends ConsumerState<AddPartnerScreen> {
   final _searchController = TextEditingController();
   bool _isSearching = false;
-  bool _isSubmitting = false;
   List<Map<String, dynamic>> _results = [];
   String? _error;
   bool _hasSearched = false;
+  final Set<String> _submittingUsers = {};
 
   @override
   void dispose() {
@@ -61,6 +64,27 @@ class _AddPartnerScreenState extends ConsumerState<AddPartnerScreen> {
         _isSearching = false;
       });
     }
+  }
+
+  // Check existing relationship status
+  String? _existingStatus(String userId) {
+    final partners = ref.read(partnersNotifierProvider).valueOrNull ?? [];
+    final friends = ref.read(friendsNotifierProvider).valueOrNull ?? [];
+
+    for (final p in partners) {
+      if (p.partnerId == userId) {
+        if (p.status == PartnerStatus.active) return 'Active Partner';
+        if (p.status == PartnerStatus.pending) return 'Pending';
+      }
+    }
+
+    for (final f in friends) {
+      if (f.friendId == userId && f.status == FriendshipStatus.accepted) {
+        return 'Friend';
+      }
+    }
+
+    return null;
   }
 
   @override
@@ -163,7 +187,11 @@ class _AddPartnerScreenState extends ConsumerState<AddPartnerScreen> {
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final user = _results[index];
+        final userId = user['id'] as String;
         final username = user['username'] as String? ?? 'Unknown';
+        final status = _existingStatus(userId);
+        final isSubmitting = _submittingUsers.contains(userId);
+
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
@@ -178,28 +206,42 @@ class _AddPartnerScreenState extends ConsumerState<AddPartnerScreen> {
               ),
             ),
             title: Text(username),
-            trailing: FilledButton.tonal(
-              onPressed: _isSubmitting ? null : () async {
-                setState(() => _isSubmitting = true);
-                try {
-                  await ref.read(partnersNotifierProvider.notifier).sendRequest(username);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Partner request sent to $username')),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isSubmitting = false);
-                }
-              },
-              child: Text(_isSubmitting ? 'Sending...' : 'Partner'),
-            ),
+            subtitle: status != null ? Text(status) : null,
+            trailing: status == null
+                ? FilledButton.tonal(
+                    onPressed: isSubmitting ? null : () async {
+                      setState(() => _submittingUsers.add(userId));
+                      try {
+                        await ref.read(partnersNotifierProvider.notifier).sendRequest(username);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Partner request sent to $username')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _submittingUsers.remove(userId));
+                      }
+                    },
+                    child: Text(isSubmitting ? 'Pending...' : 'Partner'),
+                  )
+                : Chip(
+                    label: Text(
+                      status == 'Active Partner' ? 'Active Partner' : status,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: status == 'Active Partner'
+                            ? Colors.red
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
           ),
         );
       },

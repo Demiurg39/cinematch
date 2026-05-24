@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/room_provider.dart';
@@ -225,10 +226,12 @@ class _LobbyDiscoveryView extends ConsumerWidget {
               if (context.mounted) {
                 Navigator.pop(context);
                 if (room != null) {
-                  await repo.joinRoom(room.id);
+                  final joined = await repo.joinRoom(room.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Joined ${room.name}')),
+                      joined
+                        ? SnackBar(content: Text('Joined ${room.name}'))
+                        : const SnackBar(content: Text('Room is full')),
                     );
                   }
                 } else {
@@ -249,6 +252,7 @@ class _LobbyDiscoveryView extends ConsumerWidget {
     final nameController = TextEditingController();
     bool isPrivate = false;
     int matchThreshold = 2;
+    int maxParticipants = 4;
     Duration timerDuration = const Duration(minutes: 5);
 
     showDialog(
@@ -295,6 +299,17 @@ class _LobbyDiscoveryView extends ConsumerWidget {
                   selectedDuration: timerDuration,
                   onChanged: (d) => setDialogState(() => timerDuration = d),
                 ),
+                const SizedBox(height: 16),
+                Text('Max Participants', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [2, 4, 6, 8].map((n) => ChoiceChip(
+                    label: Text('$n'),
+                    selected: maxParticipants == n,
+                    onSelected: (_) => setDialogState(() => maxParticipants = n),
+                  )).toList(),
+                ),
               ],
             ),
           ),
@@ -308,6 +323,7 @@ class _LobbyDiscoveryView extends ConsumerWidget {
                   name: nameController.text,
                   matchThreshold: matchThreshold,
                   isPrivate: isPrivate,
+                  maxParticipants: maxParticipants,
                 );
                 // Set timer on the room
                 await repo.setRoomTimer(room.id, timerDuration);
@@ -457,9 +473,25 @@ class _ActiveRoomDashboardState extends ConsumerState<_ActiveRoomDashboard> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Text(
-                      'Code: ${room.code}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Code: ${room.code}',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 20),
+                          tooltip: 'Copy invite code',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: room.code));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Code copied to clipboard')),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -476,6 +508,12 @@ class _ActiveRoomDashboardState extends ConsumerState<_ActiveRoomDashboard> {
                         Chip(
                           avatar: const Icon(Icons.groups, size: 14),
                           label: Text('${room.matchThreshold}/4'),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        const SizedBox(width: 8),
+                        Chip(
+                          avatar: const Icon(Icons.people, size: 14),
+                          label: Text('Cap: ${room.maxParticipants}'),
                           visualDensity: VisualDensity.compact,
                         ),
                       ],
@@ -834,10 +872,12 @@ class _PublicRoomCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: () async {
             final repo = ref.read(roomsRepositoryProvider);
-            await repo.joinRoom(room.id);
+            final joined = await repo.joinRoom(room.id);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Joined ${room.name}')),
+                joined
+                  ? SnackBar(content: Text('Joined ${room.name}'))
+                  : const SnackBar(content: Text('Room is full')),
               );
             }
           },

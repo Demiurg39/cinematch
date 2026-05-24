@@ -8,6 +8,8 @@ class MovieModel {
   final List<String> genres;
   final double popularity;
   final int? runtime;
+  final double? voteAverage;
+  final int? voteCount;
   final DateTime cachedAt;
   final DateTime? lastSyncedAt;
 
@@ -21,6 +23,8 @@ class MovieModel {
     this.genres = const [],
     this.popularity = 0,
     this.runtime,
+    this.voteAverage,
+    this.voteCount,
     required this.cachedAt,
     this.lastSyncedAt,
   });
@@ -36,6 +40,8 @@ class MovieModel {
       genres: (json['genres'] as List<dynamic>?)?.cast<String>() ?? [],
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
       runtime: json['runtime'] as int?,
+      voteAverage: (json['vote_average'] as num?)?.toDouble(),
+      voteCount: json['vote_count'] as int?,
       cachedAt: DateTime.parse(json['cached_at'] as String),
       lastSyncedAt: json['last_synced_at'] != null
           ? DateTime.parse(json['last_synced_at'] as String)
@@ -54,6 +60,8 @@ class MovieModel {
       'genres': genres,
       'popularity': popularity,
       'runtime': runtime,
+      'vote_average': voteAverage,
+      'vote_count': voteCount,
       'cached_at': cachedAt.toIso8601String(),
       'last_synced_at': lastSyncedAt?.toIso8601String(),
     };
@@ -79,6 +87,8 @@ class MovieModel {
       genres: genreNames,
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
       runtime: json['runtime'] as int?,
+      voteAverage: (json['vote_average'] as num?)?.toDouble(),
+      voteCount: json['vote_count'] as int?,
       cachedAt: DateTime.now(),
       lastSyncedAt: DateTime.now(),
     );
@@ -94,6 +104,8 @@ class MovieModel {
     List<String>? genres,
     double? popularity,
     int? runtime,
+    double? voteAverage,
+    int? voteCount,
     DateTime? cachedAt,
     DateTime? lastSyncedAt,
   }) {
@@ -107,6 +119,8 @@ class MovieModel {
       genres: genres ?? this.genres,
       popularity: popularity ?? this.popularity,
       runtime: runtime ?? this.runtime,
+      voteAverage: voteAverage ?? this.voteAverage,
+      voteCount: voteCount ?? this.voteCount,
       cachedAt: cachedAt ?? this.cachedAt,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     );

@@ -11,6 +11,7 @@ class RoomsRepository {
     required String name,
     required int matchThreshold,
     bool isPrivate = false,
+    int maxParticipants = 4,
   }) async {
     final code = _generateRoomCode();
     final userId = currentUserId!;
@@ -22,12 +23,18 @@ class RoomsRepository {
       'status': 'lobby',
       'match_threshold': RoomModel.thresholdToDbValue(matchThreshold),
       'is_private': isPrivate,
+      'max_participants': maxParticipants,
     }).select().single();
 
-    await _client.from('room_members').insert({
-      'room_id': response['id'],
-      'user_id': userId,
-    });
+    // Guard against duplicate members (phantom user bug)
+    final existing = await _client.from('room_members').select('id')
+        .eq('room_id', response['id']).eq('user_id', userId).maybeSingle();
+    if (existing == null) {
+      await _client.from('room_members').insert({
+        'room_id': response['id'],
+        'user_id': userId,
+      });
+    }
 
     return RoomModel.fromJson(response);
   }
@@ -38,18 +45,40 @@ class RoomsRepository {
     return RoomModel.fromJson(response);
   }
 
-  Future<void> joinRoom(String roomId) async {
+  Future<bool> joinRoom(String roomId) async {
+    final uid = currentUserId;
+    if (uid == null) return false;
+    // Check capacity
+    final room = await _client.from('rooms').select('max_participants').eq('id', roomId).single();
+    final memberCount = await _client.from('room_members').select('id')
+        .eq('room_id', roomId);
+    final count = (memberCount as List).length;
+    final maxPart = room['max_participants'] as int? ?? 4;
+    if (count >= maxPart) return false;
     await _client.from('room_members').insert({
       'room_id': roomId,
-      'user_id': currentUserId,
+      'user_id': uid,
     });
+    return true;
   }
 
   Future<void> leaveRoom(String roomId) async {
     final uid = currentUserId;
     if (uid == null) return;
+    // Clean up user's swipes and vetoes for this room
+    await _client.from('swipes').delete()
+        .eq('room_id', roomId).eq('user_id', uid);
+    await _client.from('room_vetoes').delete()
+        .eq('room_id', roomId).eq('user_id', uid);
+    // Remove from members
     await _client.from('room_members').delete()
         .eq('room_id', roomId).eq('user_id', uid);
+    // If room has no remaining members, archive it
+    final remaining = await _client.from('room_members').select('id')
+        .eq('room_id', roomId);
+    if ((remaining as List).isEmpty) {
+      await _client.from('rooms').update({'status': 'archived'}).eq('id', roomId);
+    }
   }
 
   Future<List<RoomModel>> getMyRooms() async {

@@ -444,18 +444,15 @@ class _SwipeDeck extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: MediaQuery.of(context).size.height * 0.60,
-                  child: GestureDetector(
-                    onTap: () => _openDetail(context, movies[0]),
-                    child: SwipeCard(
-                      onSwipeRight: () => _handleSwipe(movies[0], SwipeAction.like),
-                      onSwipeLeft: () => _handleSwipe(movies[0], SwipeAction.dislike),
-                      onSwipeUp: () => _handleSwipe(movies[0], SwipeAction.veto),
-                      onSwipeDown: () => _handleSwipe(movies[0], SwipeAction.maybe),
-                      child: MovieCardContent(
-                        movie: movies[0],
-                        isMlRecommendation: mlRecommendedTmdbIds.contains(movies[0].tmdbId),
-                        partnerLiked: partnerLikedTmdbIds.contains(movies[0].tmdbId),
-                      ),
+                  child: SwipeCard(
+                    onSwipeRight: () => _handleSwipe(movies[0], SwipeAction.like),
+                    onSwipeLeft: () => _handleSwipe(movies[0], SwipeAction.dislike),
+                    onSwipeUp: () => _handleSwipe(movies[0], SwipeAction.veto),
+                    onSwipeDown: () => _handleSwipe(movies[0], SwipeAction.maybe),
+                    child: MovieCardContent(
+                      movie: movies[0],
+                      isMlRecommendation: mlRecommendedTmdbIds.contains(movies[0].tmdbId),
+                      partnerLiked: partnerLikedTmdbIds.contains(movies[0].tmdbId),
                     ),
                   ),
                 ),

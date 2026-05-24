@@ -26,29 +26,31 @@ class PartnerAnalyticsRepository {
     required String partnerId,
   }) async {
     final uid = currentUserId;
-    if (uid == null) return const GenreHarmonyData(
-      userWeights: {}, partnerWeights: {}, sharedWeights: {},
-    );
+    if (uid == null) {
+      return const GenreHarmonyData(
+        userWeights: {}, partnerWeights: {}, sharedWeights: {},
+      );
+    }
 
     // Query current user's individual likes
     final userLikes = await _client.from('swipes')
         .select('movie_id, movies!swipes_movie_id_fkey(genres)')
         .eq('user_id', uid)
         .eq('direction', 'like')
-        .isFilter('room_id', true);
+        .filter('room_id', 'is', 'null');
 
     // Query partner's individual likes
     final partnerLikes = await _client.from('swipes')
         .select('movie_id, movies!swipes_movie_id_fkey(genres)')
         .eq('user_id', partnerId)
         .eq('direction', 'like')
-        .isFilter('room_id', true);
+        .filter('room_id', 'is', 'null');
 
     // Query shared watch history
     final sharedMovies = await getTogetherHistory(partnerLinkId);
 
     // Helper to count genres
-    Map<String, double> _countGenres(List<Map<String, dynamic>> swipes) {
+    Map<String, double> countGenreWeights(List<Map<String, dynamic>> swipes) {
       final counts = <String, int>{};
       int total = 0;
       for (final swipe in swipes) {
@@ -64,7 +66,7 @@ class PartnerAnalyticsRepository {
       return counts.map((genre, count) => MapEntry(genre, count / total));
     }
 
-    Map<String, double> _countGenresFromMovies(List<MovieModel> movies) {
+    Map<String, double> countGenreWeightsFromMovies(List<MovieModel> movies) {
       final counts = <String, int>{};
       int total = 0;
       for (final movie in movies) {
@@ -78,9 +80,9 @@ class PartnerAnalyticsRepository {
     }
 
     return GenreHarmonyData(
-      userWeights: _countGenres(userLikes),
-      partnerWeights: _countGenres(partnerLikes),
-      sharedWeights: _countGenresFromMovies(sharedMovies),
+      userWeights: countGenreWeights(userLikes),
+      partnerWeights: countGenreWeights(partnerLikes),
+      sharedWeights: countGenreWeightsFromMovies(sharedMovies),
     );
   }
 

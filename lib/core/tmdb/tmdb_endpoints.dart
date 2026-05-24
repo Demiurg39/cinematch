@@ -10,4 +10,5 @@ class TmdbEndpoints {
 
   static String movieDetail(int movieId) => '/movie/$movieId';
   static String movieWatchProviders(int movieId) => '/movie/$movieId/watch/providers';
+  static String movieVideos(int movieId) => '/movie/$movieId/videos';
 }

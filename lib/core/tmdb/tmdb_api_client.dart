@@ -74,6 +74,17 @@ class TmdbApiClient {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getMovieVideos({
+    required int tmdbId,
+    String language = 'en-US',
+  }) async {
+    final response = await _dio.get(
+      TmdbEndpoints.movieVideos(tmdbId),
+      queryParameters: {'language': language},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> discoverMovies({
     int page = 1,
     List<int>? withGenres,

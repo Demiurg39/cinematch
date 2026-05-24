@@ -270,6 +270,30 @@ class MoviesRepository {
     }
   }
 
+  Future<String?> getMovieTrailerKey(int tmdbId, {String language = 'en-US'}) async {
+    try {
+      final data = await _tmdbApi.getMovieVideos(tmdbId: tmdbId, language: language);
+      final results = data['results'] as List<dynamic>? ?? [];
+      // Prefer official trailer on YouTube
+      final trailer = (results.cast<Map<String, dynamic>>()).firstWhere(
+        (v) =>
+            v['type'] == 'Trailer' &&
+            v['site'] == 'YouTube' &&
+            v['official'] == true,
+        orElse: () => results.firstWhere(
+          (v) => v['type'] == 'Trailer' && v['site'] == 'YouTube',
+          orElse: () => results.firstWhere(
+            (v) => v['site'] == 'YouTube',
+            orElse: () => <String, dynamic>{},
+          ),
+        ),
+      );
+      return trailer['key'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<int> refreshMoviesWithoutGenres({int batchSize = 10}) async {
     // Find movies missing genres
     final response = await _supabase

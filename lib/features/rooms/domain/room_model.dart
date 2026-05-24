@@ -11,6 +11,7 @@ class RoomModel {
   final List<String> participantIds;
   final bool isPrivate;
   final DateTime? timerEndAt;
+  final int maxParticipants;
 
   const RoomModel({
     required this.id,
@@ -23,6 +24,7 @@ class RoomModel {
     required this.participantIds,
     this.isPrivate = false,
     this.timerEndAt,
+    this.maxParticipants = 4,
   });
 
   factory RoomModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class RoomModel {
       timerEndAt: json['timer_end_at'] != null
           ? DateTime.parse(json['timer_end_at'] as String)
           : null,
+      maxParticipants: json['max_participants'] as int? ?? 4,
     );
   }
 

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cinematch/features/movies/domain/movie_model.dart';
+import 'package:cinematch/features/movies/presentation/providers/movies_provider.dart';
+import 'package:cinematch/features/movies/presentation/movie_detail_screen.dart';
 import 'package:cinematch/core/theme/app_theme.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
-class MovieCardContent extends StatelessWidget {
+class MovieCardContent extends ConsumerStatefulWidget {
   final MovieModel movie;
   final bool showDetails;
   final bool isMlRecommendation;
@@ -17,269 +21,462 @@ class MovieCardContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
+  ConsumerState<MovieCardContent> createState() => _MovieCardContentState();
+}
+
+class _MovieCardContentState extends ConsumerState<MovieCardContent> {
+  String? _trailerKey;
+  bool _showTrailer = false;
+  YoutubePlayerController? _youtubeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchTrailer();
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _prefetchTrailer() async {
+    final repo = ref.read(moviesRepositoryProvider);
+    final key = await repo.getMovieTrailerKey(widget.movie.tmdbId);
+    if (mounted) {
+      setState(() => _trailerKey = key);
+    }
+  }
+
+  void _onPosterTap(BuildContext context) {
+    if (_trailerKey != null && _trailerKey!.isNotEmpty) {
+      _youtubeController = YoutubePlayerController(
+        initialVideoId: _trailerKey!,
+        flags: const YoutubePlayerFlags(
+          autoPlay: true,
+          mute: false,
+          controlsVisibleAtStart: true,
+          hideThumbnail: true,
+        ),
+      );
+      setState(() => _showTrailer = true);
+    } else {
+      // No trailer available — navigate to details
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MovieDetailScreen(movie: widget.movie),
+        ),
+      );
+    }
+  }
+
+  void _showContextMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Poster image - w500 is universally available on TMDB, good quality for mobile
-            if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
-              Image.network(
-                movie.posterUrl!,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                loadingBuilder: (_, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  if (loadingProgress.expectedTotalBytes == null) return child;
-                  return _ShimmerPlaceholder(
-                    progress: loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!,
-                  );
-                },
-                errorBuilder: (_, __, ___) => Container(
-                  color: AppColors.surfaceDark,
-                  child: const Center(
-                    child: Icon(Icons.broken_image, size: 60, color: Colors.white38),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('View Details'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MovieDetailScreen(movie: widget.movie),
                   ),
-                ),
-              )
-            else
-              Container(
-                color: AppColors.surfaceDark,
-                child: const Icon(Icons.movie, size: 80, color: Colors.white54),
-              ),
-
-            // ML recommendation badge
-            if (isMlRecommendation)
-              Positioned(
-                top: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF667eea), Color(0xFF764ba)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF667eea).withValues(alpha: 0.5),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'ML',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Partner liked badge
-            if (partnerLiked)
-              Positioned(
-                top: 16,
-                left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.favorite, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'Partner liked',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Gradient overlay
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.black.withValues(alpha: 0.9),
-                    ],
-                    stops: const [0.0, 0.4, 0.7, 1.0],
-                  ),
-                ),
-              ),
+                );
+              },
             ),
-
-            // Content
-            if (showDetails)
-              Positioned(
-                bottom: 20,
-                left: 20,
-                right: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Title
-                    Text(
-                      movie.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Year and runtime
-                    Row(
-                      children: [
-                        if (movie.year != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${movie.year}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (movie.runtime != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${movie.runtime} min',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-
-                    // Genres
-                    if (movie.genres.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: movie.genres.take(3).map((genre) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primaryPink.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              genre,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-
-                    // Description
-                    if (movie.overview != null && movie.overview!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        movie.overview!,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.4,
-                        ),
-                        maxLines: showDetails ? 3 : 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('Add to List'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Lists feature coming soon')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: const Text('Watch Later'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Watch Later coming soon')),
+                );
+              },
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPress: () => _showContextMenu(context),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 30,
+              offset: const Offset(0, 15),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Poster or Trailer
+              if (_showTrailer && _youtubeController != null)
+                YoutubePlayer(
+                  controller: _youtubeController!,
+                  showVideoProgressIndicator: true,
+                  aspectRatio: 16 / 9,
+                )
+              else
+                _buildPoster(),
+
+              // Close button when trailer playing
+              if (_showTrailer)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () {
+                      _youtubeController?.pause();
+                      setState(() => _showTrailer = false);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Play overlay when poster is shown and trailer available
+              if (!_showTrailer && _trailerKey != null && _trailerKey!.isNotEmpty)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => _onPosterTap(context),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.center,
+                          end: Alignment.center,
+                          colors: [
+                            Colors.black.withValues(alpha: 0),
+                            Colors.black.withValues(alpha: 0.3),
+                          ],
+                        ),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            color: AppColors.primaryPink,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ML recommendation badge
+              if (widget.isMlRecommendation && !_showTrailer)
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF667eea).withValues(alpha: 0.5),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'ML',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Partner liked badge
+              if (widget.partnerLiked && !_showTrailer)
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.favorite, size: 14, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Partner liked',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Gradient overlay (hidden during trailer)
+              if (!_showTrailer)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.9),
+                        ],
+                        stops: const [0.0, 0.4, 0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Content (hidden during trailer)
+              if (widget.showDetails && !_showTrailer)
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Title
+                      Text(
+                        widget.movie.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Year, runtime, and rating
+                      Row(
+                        children: [
+                          if (widget.movie.year != null) ...[
+                            _InfoChip(text: '${widget.movie.year}'),
+                          ],
+                          if (widget.movie.runtime != null) ...[
+                            const SizedBox(width: 8),
+                            _InfoChip(text: '${widget.movie.runtime} min'),
+                          ],
+                          if (widget.movie.voteAverage != null) ...[
+                            const SizedBox(width: 8),
+                            _InfoChip(
+                              text: widget.movie.voteAverage!.toStringAsFixed(1),
+                              icon: Icons.star_rounded,
+                              iconColor: Colors.amber,
+                            ),
+                          ],
+                        ],
+                      ),
+
+                      // Genres
+                      if (widget.movie.genres.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: widget.movie.genres.take(3).map((genre) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primaryPink.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                genre,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+
+                      // Description
+                      if (widget.movie.overview != null && widget.movie.overview!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.movie.overview!,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1.4,
+                          ),
+                          maxLines: widget.showDetails ? 3 : 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPoster() {
+    if (widget.movie.posterUrl != null && widget.movie.posterUrl!.isNotEmpty) {
+      return GestureDetector(
+        onTap: () => _onPosterTap(context),
+        child: Image.network(
+          widget.movie.posterUrl!,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          loadingBuilder: (_, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            if (loadingProgress.expectedTotalBytes == null) return child;
+            return _ShimmerPlaceholder(
+              progress: loadingProgress.cumulativeBytesLoaded /
+                  loadingProgress.expectedTotalBytes!,
+            );
+          },
+          errorBuilder: (_, _, _) => Container(
+            color: AppColors.surfaceDark,
+            child: const Center(
+              child: Icon(Icons.broken_image, size: 60, color: Colors.white38),
+            ),
+          ),
+        ),
+      );
+    }
+    return Container(
+      color: AppColors.surfaceDark,
+      child: GestureDetector(
+        onTap: () => _onPosterTap(context),
+        child: const Icon(Icons.movie, size: 80, color: Colors.white54),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final String text;
+  final IconData? icon;
+  final Color? iconColor;
+
+  const _InfoChip({
+    required this.text,
+    this.icon,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: iconColor ?? Colors.white70),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
