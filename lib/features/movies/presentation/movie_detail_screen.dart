@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:cinematch/features/movies/domain/movie_model.dart';
 import 'package:cinematch/core/theme/app_theme.dart';
+import 'package:cinematch/core/localization/user_locale_provider.dart';
 import 'providers/movies_provider.dart';
 
 class MovieDetailScreen extends ConsumerStatefulWidget {
@@ -23,7 +24,8 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _prefetchTrailer();
+    final locale = ref.read(userLocaleProvider);
+    _prefetchTrailer(language: locale.language);
   }
 
   @override
@@ -32,9 +34,9 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _prefetchTrailer() async {
+  Future<void> _prefetchTrailer({String language = 'en-US'}) async {
     final repo = ref.read(moviesRepositoryProvider);
-    final key = await repo.getMovieTrailerKey(widget.movie.tmdbId);
+    final key = await repo.getMovieTrailerKey(widget.movie.tmdbId, language: language);
     if (mounted) {
       setState(() => _trailerKey = key);
     }
@@ -63,6 +65,16 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final watchProvidersAsync = ref.watch(watchProvidersNotifierProvider(widget.movie.tmdbId));
+
+    // Re-fetch trailer on locale change
+    ref.listen(userLocaleProvider, (prev, next) {
+      if (prev?.languageTag != next.languageTag) {
+        _youtubeController?.close();
+        _youtubeController = null;
+        setState(() => _showTrailer = false);
+        _prefetchTrailer(language: next.language);
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -353,9 +365,10 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
                                 style: TextStyle(color: AppColors.textMuted),
                               );
                             }
-                            // Get US providers or first available region
-                            final usProviders = results['US'] as Map<String, dynamic>?;
-                            final regionProviders = usProviders ?? results.values.first as Map<String, dynamic>?;
+                            // Get user's region providers or first available
+                            final locale = ref.read(userLocaleProvider);
+                            final userRegionProviders = results[locale.region] as Map<String, dynamic>?;
+                            final regionProviders = userRegionProviders ?? results.values.first as Map<String, dynamic>?;
                             if (regionProviders == null) {
                               return const Text(
                                 'No streaming info available',

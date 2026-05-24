@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/localization/user_locale_provider.dart';
 import '../../../movies/domain/movie_model.dart';
 import '../../../movies/presentation/providers/movies_provider.dart';
 import '../../domain/swipe_action.dart';
@@ -42,6 +43,13 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       }
     });
 
+    // Listen for locale changes to refresh content
+    ref.listen(userLocaleProvider, (prev, next) {
+      if (prev?.languageTag != next.languageTag) {
+        Future.microtask(() => refresh());
+      }
+    });
+
     // Initial load - fire and forget, don't wait
     Future.microtask(() => _initialize());
 
@@ -79,6 +87,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
     final genreFilter = ref.read(genreFilterNotifierProvider);
     final selectedGenres = genreFilter['selectedGenres'] as List<int>;
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    final locale = ref.read(userLocaleProvider);
 
     List<MovieModel> movies = [];
     List<MovieModel> mlMovies = [];
@@ -109,6 +118,8 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         movies = await repository.discoverMoviesByGenre(
           genreIds: selectedGenres,
           page: _currentPage,
+          language: locale.language,
+          region: locale.region,
         );
         _currentPage++;
 
@@ -116,6 +127,8 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           movies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
             page: _currentPage,
+            language: locale.language,
+            region: locale.region,
           );
           _currentPage++;
         }
@@ -133,18 +146,18 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
         movies = mlMovies;
       } else {
         // No ML data - use popular movies directly
-        movies = await repository.getPopularMovies(page: _currentPage);
+        movies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
         _currentPage++;
       }
     } else {
       // No userId - use popular movies
-      movies = await repository.getPopularMovies(page: _currentPage);
+      movies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
       _currentPage++;
     }
 
     // Still empty? Try popular as fallback
     if (movies.isEmpty) {
-      movies = await repository.getPopularMovies(page: _currentPage);
+      movies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
       _currentPage++;
     }
 
@@ -236,6 +249,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       final genreFilter = ref.read(genreFilterNotifierProvider);
       final selectedGenres = genreFilter['selectedGenres'] as List<int>;
       final userId = Supabase.instance.client.auth.currentUser?.id;
+      final locale = ref.read(userLocaleProvider);
 
       List<MovieModel> newMovies = [];
       bool genreExhausted = false;
@@ -271,6 +285,8 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           newMovies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
             page: _currentPage,
+            language: locale.language,
+            region: locale.region,
           );
           _currentPage++;
           if (newMovies.isEmpty) {
@@ -291,13 +307,13 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
             newMlTmdbIds.addAll(mlMovies.map((m) => m.tmdbId));
           } else {
             // Fall back to popular
-            newMovies = await repository.getPopularMovies(page: _currentPage);
+            newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
             _currentPage++;
           }
         }
       } else {
         // No user - use popular
-        newMovies = await repository.getPopularMovies(page: _currentPage);
+        newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
         _currentPage++;
       }
 
@@ -307,18 +323,20 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           newMovies = await repository.discoverMoviesByGenre(
             genreIds: selectedGenres,
             page: _currentPage,
+            language: locale.language,
+            region: locale.region,
           );
           _currentPage++;
           if (newMovies.isEmpty) genreExhausted = true;
         } else {
-          newMovies = await repository.getPopularMovies(page: _currentPage);
+          newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
           _currentPage++;
         }
       }
 
       // Still empty? If genre was exhausted, fall back to popular movies
       if (newMovies.isEmpty && genreExhausted) {
-        newMovies = await repository.getPopularMovies(page: _currentPage);
+        newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
         _currentPage++;
       }
 
@@ -398,6 +416,12 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
       }
     });
 
+    ref.listen(userLocaleProvider, (prev, next) {
+      if (prev?.languageTag != next.languageTag) {
+        Future.microtask(() => refresh());
+      }
+    });
+
     Future.microtask(() => _load());
 
     return SwipeDeckState(
@@ -431,6 +455,7 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
     final repository = ref.read(moviesRepositoryProvider);
     final genreFilter = ref.read(genreFilterNotifierProvider);
     final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+    final locale = ref.read(userLocaleProvider);
 
     List<MovieModel> movies = [];
 
@@ -438,15 +463,17 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
       movies = await repository.discoverMoviesByGenre(
         genreIds: selectedGenres,
         page: _currentPage,
+        language: locale.language,
+        region: locale.region,
       );
       _currentPage++;
     } else {
-      movies = await repository.getPopularMovies(page: _currentPage);
+      movies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
       _currentPage++;
     }
 
     if (movies.isEmpty) {
-      movies = await repository.getPopularMovies(page: _currentPage);
+      movies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
       _currentPage++;
     }
 
@@ -494,6 +521,7 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
       final repository = ref.read(moviesRepositoryProvider);
       final genreFilter = ref.read(genreFilterNotifierProvider);
       final selectedGenres = genreFilter['selectedGenres'] as List<int>;
+      final locale = ref.read(userLocaleProvider);
 
       List<MovieModel> newMovies = [];
 
@@ -501,15 +529,17 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
         newMovies = await repository.discoverMoviesByGenre(
           genreIds: selectedGenres,
           page: _currentPage,
+          language: locale.language,
+          region: locale.region,
         );
         _currentPage++;
       } else {
-        newMovies = await repository.getPopularMovies(page: _currentPage);
+        newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
         _currentPage++;
       }
 
       if (newMovies.isEmpty) {
-        newMovies = await repository.getPopularMovies(page: _currentPage);
+        newMovies = await repository.getPopularMovies(page: _currentPage, language: locale.language, region: locale.region);
         _currentPage++;
       }
 

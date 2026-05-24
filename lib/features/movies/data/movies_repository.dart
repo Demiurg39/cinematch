@@ -12,12 +12,16 @@ class MoviesRepository {
   final SupabaseClient _supabase;
   final TmdbApiClient _tmdbApi;
 
-  Future<List<MovieModel>> getPopularMovies({int page = 1}) async {
-    final data = await _tmdbApi.getPopularMovies(page: page);
+  Future<List<MovieModel>> getPopularMovies({
+    int page = 1,
+    String language = 'en-US',
+    String? region,
+  }) async {
+    final data = await _tmdbApi.getPopularMovies(page: page, language: language, region: region);
     final results = data['results'] as List<dynamic>;
 
     // Fetch genre list once for mapping
-    final genreData = await _tmdbApi.getGenreList();
+    final genreData = await _tmdbApi.getGenreList(language: language);
     final genres = genreData['genres'] as List<dynamic>;
     final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
 
@@ -39,15 +43,19 @@ class MoviesRepository {
   Future<List<MovieModel>> discoverMoviesByGenre({
     required List<int> genreIds,
     int page = 1,
+    String language = 'en-US',
+    String? region,
   }) async {
     final data = await _tmdbApi.discoverMovies(
       page: page,
       withGenres: genreIds,
+      language: language,
+      region: region,
     );
     final results = data['results'] as List<dynamic>;
 
     // Fetch genre list for mapping
-    final genreData = await _tmdbApi.getGenreList();
+    final genreData = await _tmdbApi.getGenreList(language: language);
     final genres = genreData['genres'] as List<dynamic>;
     final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
 
@@ -88,12 +96,16 @@ class MoviesRepository {
     return movies;
   }
 
-  Future<List<MovieModel>> searchMovies(String query) async {
-    final data = await _tmdbApi.searchMovies(query: query);
+  Future<List<MovieModel>> searchMovies(
+    String query, {
+    String language = 'en-US',
+    String? region,
+  }) async {
+    final data = await _tmdbApi.searchMovies(query: query, language: language, region: region);
     final results = data['results'] as List<dynamic>;
 
     // Fetch genre list for mapping
-    final genreData = await _tmdbApi.getGenreList();
+    final genreData = await _tmdbApi.getGenreList(language: language);
     final genres = genreData['genres'] as List<dynamic>;
     final genreMap = {for (var g in genres) g['id'] as int: g['name'] as String};
 
@@ -117,13 +129,13 @@ class MoviesRepository {
     return MovieModel.fromJson(response);
   }
 
-  Future<Map<String, dynamic>?> getWatchProviders(int tmdbId, {String watchRegion = 'US'}) async {
-    return await _tmdbApi.getWatchProviders(tmdbId: tmdbId, watchRegion: watchRegion);
+  Future<Map<String, dynamic>?> getWatchProviders(int tmdbId, {String watchRegion = 'US', String language = 'en-US'}) async {
+    return await _tmdbApi.getWatchProviders(tmdbId: tmdbId, watchRegion: watchRegion, language: language);
   }
 
-  Future<MovieModel?> refreshMovieDetails(int tmdbId) async {
+  Future<MovieModel?> refreshMovieDetails(int tmdbId, {String language = 'en-US', String? region}) async {
     try {
-      final data = await _tmdbApi.getMovieDetails(tmdbId: tmdbId);
+      final data = await _tmdbApi.getMovieDetails(tmdbId: tmdbId, language: language, region: region);
       final movie = MovieModel.fromTmdb(data);
 
       // Get genre names from TMDB details response directly
@@ -155,8 +167,8 @@ class MoviesRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getGenreList() async {
-    final data = await _tmdbApi.getGenreList();
+  Future<List<Map<String, dynamic>>> getGenreList({String language = 'en-US'}) async {
+    final data = await _tmdbApi.getGenreList(language: language);
     final genres = data['genres'] as List<dynamic>;
     return genres.map((g) => g as Map<String, dynamic>).toList();
   }
@@ -272,26 +284,40 @@ class MoviesRepository {
 
   Future<String?> getMovieTrailerKey(int tmdbId, {String language = 'en-US'}) async {
     try {
-      final data = await _tmdbApi.getMovieVideos(tmdbId: tmdbId, language: language);
-      final results = data['results'] as List<dynamic>? ?? [];
-      // Prefer official trailer on YouTube
-      final trailer = (results.cast<Map<String, dynamic>>()).firstWhere(
-        (v) =>
-            v['type'] == 'Trailer' &&
-            v['site'] == 'YouTube' &&
-            v['official'] == true,
-        orElse: () => results.firstWhere(
-          (v) => v['type'] == 'Trailer' && v['site'] == 'YouTube',
-          orElse: () => results.firstWhere(
-            (v) => v['site'] == 'YouTube',
-            orElse: () => <String, dynamic>{},
-          ),
-        ),
-      );
-      return trailer['key'] as String?;
+      final localizedKey = await _tryGetTrailerKey(tmdbId, language: language);
+      if (localizedKey != null) return localizedKey;
+
+      // Fallback to en-US if localized returned no results
+      if (language != 'en-US') {
+        return _tryGetTrailerKey(tmdbId, language: 'en-US');
+      }
+
+      return null;
     } catch (_) {
       return null;
     }
+  }
+
+  Future<String?> _tryGetTrailerKey(int tmdbId, {required String language}) async {
+    final data = await _tmdbApi.getMovieVideos(tmdbId: tmdbId, language: language);
+    final results = data['results'] as List<dynamic>? ?? [];
+    if (results.isEmpty) return null;
+
+    // Prefer official trailer on YouTube
+    final trailer = (results.cast<Map<String, dynamic>>()).firstWhere(
+      (v) =>
+          v['type'] == 'Trailer' &&
+          v['site'] == 'YouTube' &&
+          v['official'] == true,
+      orElse: () => results.firstWhere(
+        (v) => v['type'] == 'Trailer' && v['site'] == 'YouTube',
+        orElse: () => results.firstWhere(
+          (v) => v['site'] == 'YouTube',
+          orElse: () => <String, dynamic>{},
+        ),
+      ),
+    );
+    return trailer['key'] as String?;
   }
 
   Future<int> refreshMoviesWithoutGenres({int batchSize = 10}) async {

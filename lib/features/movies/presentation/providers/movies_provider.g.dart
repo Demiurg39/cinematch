@@ -24,7 +24,7 @@ final moviesRepositoryProvider = AutoDisposeProvider<MoviesRepository>.internal(
 // ignore: unused_element
 typedef MoviesRepositoryRef = AutoDisposeProviderRef<MoviesRepository>;
 String _$popularMoviesNotifierHash() =>
-    r'994c47056526b2f770b335281f37e171e378e203';
+    r'ca8bdee21cd41d06c9d42230008b1f45e735c2ff';
 
 /// See also [PopularMoviesNotifier].
 @ProviderFor(PopularMoviesNotifier)
@@ -44,7 +44,7 @@ final popularMoviesNotifierProvider =
 
 typedef _$PopularMoviesNotifier = AutoDisposeAsyncNotifier<List<MovieModel>>;
 String _$movieSearchNotifierHash() =>
-    r'd82f7c6b9af71fade390f2302a7a18294dd09219';
+    r'05b7966cde5b75aba2a47bad369a68c7a15f7c98';
 
 /// See also [MovieSearchNotifier].
 @ProviderFor(MovieSearchNotifier)
@@ -84,7 +84,7 @@ final cachedMoviesNotifierProvider =
 
 typedef _$CachedMoviesNotifier = AutoDisposeAsyncNotifier<List<MovieModel>>;
 String _$watchProvidersNotifierHash() =>
-    r'7cb0f939d624820bfda8bad40c7561ab66d6c3ae';
+    r'b42ef8718b48e0123d33ee7ff2bec5a6e219c355';
 
 /// Copied from Dart SDK
 class _SystemHash {

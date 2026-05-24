@@ -15,13 +15,16 @@ class TmdbApiClient {
   Future<Map<String, dynamic>> getPopularMovies({
     int page = 1,
     String language = 'en-US',
+    String? region,
   }) async {
+    final params = <String, dynamic>{
+      'page': page,
+      'language': language,
+    };
+    if (region != null) params['region'] = region;
     final response = await _dio.get(
       TmdbEndpoints.popularMovies,
-      queryParameters: {
-        'page': page,
-        'language': language,
-      },
+      queryParameters: params,
     );
     return response.data as Map<String, dynamic>;
   }
@@ -30,14 +33,17 @@ class TmdbApiClient {
     required String query,
     int page = 1,
     String language = 'en-US',
+    String? region,
   }) async {
+    final params = <String, dynamic>{
+      'query': query,
+      'page': page,
+      'language': language,
+    };
+    if (region != null) params['region'] = region;
     final response = await _dio.get(
       TmdbEndpoints.searchMovies,
-      queryParameters: {
-        'query': query,
-        'page': page,
-        'language': language,
-      },
+      queryParameters: params,
     );
     return response.data as Map<String, dynamic>;
   }
@@ -45,10 +51,13 @@ class TmdbApiClient {
   Future<Map<String, dynamic>> getMovieDetails({
     required int tmdbId,
     String language = 'en-US',
+    String? region,
   }) async {
+    final params = <String, dynamic>{'language': language};
+    if (region != null) params['region'] = region;
     final response = await _dio.get(
       TmdbEndpoints.movieDetail(tmdbId),
-      queryParameters: {'language': language},
+      queryParameters: params,
     );
     return response.data as Map<String, dynamic>;
   }
@@ -56,10 +65,11 @@ class TmdbApiClient {
   Future<Map<String, dynamic>> getWatchProviders({
     required int tmdbId,
     String watchRegion = 'US',
+    String language = 'en-US',
   }) async {
     final response = await _dio.get(
       TmdbEndpoints.movieWatchProviders(tmdbId),
-      queryParameters: {'watch_region': watchRegion},
+      queryParameters: {'watch_region': watchRegion, 'language': language},
     );
     return response.data as Map<String, dynamic>;
   }
@@ -89,6 +99,7 @@ class TmdbApiClient {
     int page = 1,
     List<int>? withGenres,
     String language = 'en-US',
+    String? region,
     String sortBy = 'popularity.desc',
   }) async {
     final queryParams = <String, dynamic>{
@@ -96,6 +107,7 @@ class TmdbApiClient {
       'language': language,
       'sort_by': sortBy,
     };
+    if (region != null) queryParams['region'] = region;
     if (withGenres != null && withGenres.isNotEmpty) {
       queryParams['with_genres'] = withGenres.join(',');
     }

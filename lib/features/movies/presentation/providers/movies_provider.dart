@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../../../core/localization/user_locale_provider.dart';
 import '../../data/movies_repository.dart';
 import '../../domain/movie_model.dart';
 
@@ -14,20 +15,27 @@ class PopularMoviesNotifier extends _$PopularMoviesNotifier {
   @override
   Future<List<MovieModel>> build() async {
     final repository = ref.read(moviesRepositoryProvider);
-    return repository.getPopularMovies();
+    final locale = ref.watch(userLocaleProvider);
+    return repository.getPopularMovies(language: locale.language, region: locale.region);
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(moviesRepositoryProvider);
-      return repository.getPopularMovies();
+      final locale = ref.read(userLocaleProvider);
+      return repository.getPopularMovies(language: locale.language, region: locale.region);
     });
   }
 
   Future<void> loadMore(int page) async {
     final currentMovies = state.valueOrNull ?? [];
-    final newMovies = await ref.read(moviesRepositoryProvider).getPopularMovies(page: page);
+    final locale = ref.read(userLocaleProvider);
+    final newMovies = await ref.read(moviesRepositoryProvider).getPopularMovies(
+      page: page,
+      language: locale.language,
+      region: locale.region,
+    );
     state = AsyncData([...currentMovies, ...newMovies]);
   }
 }
@@ -47,7 +55,8 @@ class MovieSearchNotifier extends _$MovieSearchNotifier {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(moviesRepositoryProvider);
-      return repository.searchMovies(query);
+      final locale = ref.read(userLocaleProvider);
+      return repository.searchMovies(query, language: locale.language, region: locale.region);
     });
   }
 
@@ -70,6 +79,7 @@ class WatchProvidersNotifier extends _$WatchProvidersNotifier {
   @override
   Future<Map<String, dynamic>?> build(int tmdbId) async {
     final repository = ref.read(moviesRepositoryProvider);
-    return repository.getWatchProviders(tmdbId);
+    final locale = ref.watch(userLocaleProvider);
+    return repository.getWatchProviders(tmdbId, watchRegion: locale.region, language: locale.language);
   }
 }
