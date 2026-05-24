@@ -180,13 +180,17 @@ class _TogetherHistoryProviderElement
   String get partnerLinkId => (origin as TogetherHistoryProvider).partnerLinkId;
 }
 
-String _$genreHarmonyHash() => r'de59080cd51f842aa83aa281afdfdb0159bbdb97';
+String _$genreHarmonyHash() => r'92cc20681f7adc7abde95111acb7153bd51e22ce';
 
 abstract class _$GenreHarmony
-    extends BuildlessAutoDisposeAsyncNotifier<Map<String, double>> {
+    extends BuildlessAutoDisposeAsyncNotifier<GenreHarmonyData> {
   late final String partnerLinkId;
+  late final String partnerId;
 
-  FutureOr<Map<String, double>> build(String partnerLinkId);
+  FutureOr<GenreHarmonyData> build(
+    String partnerLinkId, {
+    required String partnerId,
+  });
 }
 
 /// See also [GenreHarmony].
@@ -194,20 +198,20 @@ abstract class _$GenreHarmony
 const genreHarmonyProvider = GenreHarmonyFamily();
 
 /// See also [GenreHarmony].
-class GenreHarmonyFamily extends Family<AsyncValue<Map<String, double>>> {
+class GenreHarmonyFamily extends Family<AsyncValue<GenreHarmonyData>> {
   /// See also [GenreHarmony].
   const GenreHarmonyFamily();
 
   /// See also [GenreHarmony].
-  GenreHarmonyProvider call(String partnerLinkId) {
-    return GenreHarmonyProvider(partnerLinkId);
+  GenreHarmonyProvider call(String partnerLinkId, {required String partnerId}) {
+    return GenreHarmonyProvider(partnerLinkId, partnerId: partnerId);
   }
 
   @override
   GenreHarmonyProvider getProviderOverride(
     covariant GenreHarmonyProvider provider,
   ) {
-    return call(provider.partnerLinkId);
+    return call(provider.partnerLinkId, partnerId: provider.partnerId);
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -228,14 +232,13 @@ class GenreHarmonyFamily extends Family<AsyncValue<Map<String, double>>> {
 /// See also [GenreHarmony].
 class GenreHarmonyProvider
     extends
-        AutoDisposeAsyncNotifierProviderImpl<
-          GenreHarmony,
-          Map<String, double>
-        > {
+        AutoDisposeAsyncNotifierProviderImpl<GenreHarmony, GenreHarmonyData> {
   /// See also [GenreHarmony].
-  GenreHarmonyProvider(String partnerLinkId)
+  GenreHarmonyProvider(String partnerLinkId, {required String partnerId})
     : this._internal(
-        () => GenreHarmony()..partnerLinkId = partnerLinkId,
+        () => GenreHarmony()
+          ..partnerLinkId = partnerLinkId
+          ..partnerId = partnerId,
         from: genreHarmonyProvider,
         name: r'genreHarmonyProvider',
         debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -245,6 +248,7 @@ class GenreHarmonyProvider
         allTransitiveDependencies:
             GenreHarmonyFamily._allTransitiveDependencies,
         partnerLinkId: partnerLinkId,
+        partnerId: partnerId,
       );
 
   GenreHarmonyProvider._internal(
@@ -255,15 +259,15 @@ class GenreHarmonyProvider
     required super.debugGetCreateSourceHash,
     required super.from,
     required this.partnerLinkId,
+    required this.partnerId,
   }) : super.internal();
 
   final String partnerLinkId;
+  final String partnerId;
 
   @override
-  FutureOr<Map<String, double>> runNotifierBuild(
-    covariant GenreHarmony notifier,
-  ) {
-    return notifier.build(partnerLinkId);
+  FutureOr<GenreHarmonyData> runNotifierBuild(covariant GenreHarmony notifier) {
+    return notifier.build(partnerLinkId, partnerId: partnerId);
   }
 
   @override
@@ -271,19 +275,22 @@ class GenreHarmonyProvider
     return ProviderOverride(
       origin: this,
       override: GenreHarmonyProvider._internal(
-        () => create()..partnerLinkId = partnerLinkId,
+        () => create()
+          ..partnerLinkId = partnerLinkId
+          ..partnerId = partnerId,
         from: from,
         name: null,
         dependencies: null,
         allTransitiveDependencies: null,
         debugGetCreateSourceHash: null,
         partnerLinkId: partnerLinkId,
+        partnerId: partnerId,
       ),
     );
   }
 
   @override
-  AutoDisposeAsyncNotifierProviderElement<GenreHarmony, Map<String, double>>
+  AutoDisposeAsyncNotifierProviderElement<GenreHarmony, GenreHarmonyData>
   createElement() {
     return _GenreHarmonyProviderElement(this);
   }
@@ -291,13 +298,15 @@ class GenreHarmonyProvider
   @override
   bool operator ==(Object other) {
     return other is GenreHarmonyProvider &&
-        other.partnerLinkId == partnerLinkId;
+        other.partnerLinkId == partnerLinkId &&
+        other.partnerId == partnerId;
   }
 
   @override
   int get hashCode {
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
     hash = _SystemHash.combine(hash, partnerLinkId.hashCode);
+    hash = _SystemHash.combine(hash, partnerId.hashCode);
 
     return _SystemHash.finish(hash);
   }
@@ -305,23 +314,24 @@ class GenreHarmonyProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin GenreHarmonyRef
-    on AutoDisposeAsyncNotifierProviderRef<Map<String, double>> {
+mixin GenreHarmonyRef on AutoDisposeAsyncNotifierProviderRef<GenreHarmonyData> {
   /// The parameter `partnerLinkId` of this provider.
   String get partnerLinkId;
+
+  /// The parameter `partnerId` of this provider.
+  String get partnerId;
 }
 
 class _GenreHarmonyProviderElement
     extends
-        AutoDisposeAsyncNotifierProviderElement<
-          GenreHarmony,
-          Map<String, double>
-        >
+        AutoDisposeAsyncNotifierProviderElement<GenreHarmony, GenreHarmonyData>
     with GenreHarmonyRef {
   _GenreHarmonyProviderElement(super.provider);
 
   @override
   String get partnerLinkId => (origin as GenreHarmonyProvider).partnerLinkId;
+  @override
+  String get partnerId => (origin as GenreHarmonyProvider).partnerId;
 }
 
 String _$timeSpentHash() => r'08a8a35ed9a6e1c3cf4f838a07e4fe075d076153';

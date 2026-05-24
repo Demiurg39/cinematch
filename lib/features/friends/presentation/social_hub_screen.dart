@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../partners/presentation/providers/partners_provider.dart';
 import '../../partners/presentation/widgets/partner_dashboard.dart';
 import '../../partners/presentation/add_partner_screen.dart';
 import 'providers/friends_provider.dart';
 import 'providers/friend_requests_provider.dart';
 import 'add_friend_screen.dart';
+import '../../users/presentation/providers/presence_provider.dart';
 
 class SocialHubScreen extends ConsumerWidget {
   const SocialHubScreen({super.key});
@@ -105,7 +107,19 @@ class SocialHubScreen extends ConsumerWidget {
                             ),
                             IconButton(
                               icon: const Icon(Icons.close, color: Colors.red),
-                              onPressed: () => ref.read(partnersNotifierProvider.notifier).reject(p.partnerId),
+                              onPressed: () {
+                                showConfirmDialog(
+                                  context: context,
+                                  title: 'Reject Partner Request',
+                                  message: 'Are you sure you want to reject ${p.partnerUsername}\'s partner request?',
+                                  confirmLabel: 'Reject',
+                                  confirmColor: Colors.red,
+                                ).then((confirmed) {
+                                  if (confirmed && context.mounted) {
+                                    ref.read(partnersNotifierProvider.notifier).reject(p.partnerId);
+                                  }
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -147,7 +161,19 @@ class SocialHubScreen extends ConsumerWidget {
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.red),
-                            onPressed: () => ref.read(friendRequestsNotifierProvider.notifier).reject(req.id),
+                            onPressed: () {
+                              showConfirmDialog(
+                                context: context,
+                                title: 'Reject Friend Request',
+                                message: 'Reject friend request from ${req.friendUsername}?',
+                                confirmLabel: 'Reject',
+                                confirmColor: Colors.red,
+                              ).then((confirmed) {
+                                if (confirmed && context.mounted) {
+                                  ref.read(friendRequestsNotifierProvider.notifier).reject(req.id);
+                                }
+                              });
+                            },
                           ),
                         ],
                       ),
@@ -194,15 +220,37 @@ class SocialHubScreen extends ConsumerWidget {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Text(
-                          friend.friendUsername[0].toUpperCase(),
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Text(
+                              friend.friendUsername[0].toUpperCase(),
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
+                          // Online indicator dot
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: ref.watch(userPresenceProvider(friend.friendId)).when(
+                              loading: () => const SizedBox(width: 12, height: 12),
+                              error: (_, __) => const SizedBox(width: 12, height: 12),
+                              data: (isOnline) => Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: theme.colorScheme.surface, width: 2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       title: Text(friend.friendUsername),
                       subtitle: const Text('Friend'),
@@ -211,7 +259,17 @@ class SocialHubScreen extends ConsumerWidget {
                           if (value == 'promote') {
                             ref.read(partnersNotifierProvider.notifier).sendRequest(friend.friendUsername);
                           } else if (value == 'remove') {
-                            ref.read(friendsNotifierProvider.notifier).remove(friend.friendId);
+                            showConfirmDialog(
+                              context: context,
+                              title: 'Remove Friend',
+                              message: 'Are you sure you want to remove ${friend.friendUsername} from your friends?',
+                              confirmLabel: 'Remove',
+                              confirmColor: Colors.red,
+                            ).then((confirmed) {
+                              if (confirmed && context.mounted) {
+                                ref.read(friendsNotifierProvider.notifier).remove(friend.friendId);
+                              }
+                            });
                           }
                         },
                         itemBuilder: (context) => [

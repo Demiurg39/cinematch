@@ -30,3 +30,11 @@ class RoomByCodeNotifier extends _$RoomByCodeNotifier {
     return ref.read(roomsRepositoryProvider).getRoomByCode(code);
   }
 }
+
+@riverpod
+class PublicRoomsNotifier extends _$PublicRoomsNotifier {
+  @override
+  Stream<List<RoomModel>> build() {
+    return ref.read(roomsRepositoryProvider).watchPublicRooms();
+  }
+}

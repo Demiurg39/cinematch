@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../movies/domain/movie_model.dart';
+import '../domain/genre_harmony_data.dart';
 
 class PartnerAnalyticsRepository {
   final SupabaseClient _client;
@@ -20,21 +21,67 @@ class PartnerAnalyticsRepository {
     }).toList();
   }
 
-  Future<Map<String, double>> getGenreHarmony(String partnerLinkId) async {
-    final movies = await getTogetherHistory(partnerLinkId);
+  Future<GenreHarmonyData> getIndividualGenreHarmony({
+    required String partnerLinkId,
+    required String partnerId,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) return const GenreHarmonyData(
+      userWeights: {}, partnerWeights: {}, sharedWeights: {},
+    );
 
-    final genreCounts = <String, int>{};
-    int total = 0;
-    for (final movie in movies) {
-      for (final genre in movie.genres) {
-        genreCounts[genre] = (genreCounts[genre] ?? 0) + 1;
-        total++;
+    // Query current user's individual likes
+    final userLikes = await _client.from('swipes')
+        .select('movie_id, movies!swipes_movie_id_fkey(genres)')
+        .eq('user_id', uid)
+        .eq('direction', 'like')
+        .isFilter('room_id', true);
+
+    // Query partner's individual likes
+    final partnerLikes = await _client.from('swipes')
+        .select('movie_id, movies!swipes_movie_id_fkey(genres)')
+        .eq('user_id', partnerId)
+        .eq('direction', 'like')
+        .isFilter('room_id', true);
+
+    // Query shared watch history
+    final sharedMovies = await getTogetherHistory(partnerLinkId);
+
+    // Helper to count genres
+    Map<String, double> _countGenres(List<Map<String, dynamic>> swipes) {
+      final counts = <String, int>{};
+      int total = 0;
+      for (final swipe in swipes) {
+        final movieJson = swipe['movies'] as Map<String, dynamic>?;
+        final genres = movieJson?['genres'] as List<dynamic>? ?? [];
+        for (final genre in genres) {
+          final g = genre as String;
+          counts[g] = (counts[g] ?? 0) + 1;
+          total++;
+        }
       }
+      if (total == 0) return {};
+      return counts.map((genre, count) => MapEntry(genre, count / total));
     }
 
-    if (total == 0) return {};
+    Map<String, double> _countGenresFromMovies(List<MovieModel> movies) {
+      final counts = <String, int>{};
+      int total = 0;
+      for (final movie in movies) {
+        for (final genre in movie.genres) {
+          counts[genre] = (counts[genre] ?? 0) + 1;
+          total++;
+        }
+      }
+      if (total == 0) return {};
+      return counts.map((genre, count) => MapEntry(genre, count / total));
+    }
 
-    return genreCounts.map((genre, count) => MapEntry(genre, count / total));
+    return GenreHarmonyData(
+      userWeights: _countGenres(userLikes),
+      partnerWeights: _countGenres(partnerLikes),
+      sharedWeights: _countGenresFromMovies(sharedMovies),
+    );
   }
 
   Future<Duration> getTimeSpent(String partnerLinkId) async {

@@ -4,6 +4,7 @@ import '../features/swipe/presentation/swipe_screen.dart';
 import '../features/rooms/presentation/rooms_screen.dart';
 import '../features/friends/presentation/social_hub_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/users/presentation/providers/presence_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -12,7 +13,7 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   final _screens = const [
@@ -23,7 +24,34 @@ class _AppShellState extends ConsumerState<AppShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Set online on app start
+    Future.microtask(() => ref.read(myPresenceNotifierProvider.notifier).setOnline());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      ref.read(myPresenceNotifierProvider.notifier).setOnline();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      ref.read(myPresenceNotifierProvider.notifier).setOffline();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Initialize presence tracking
+    ref.watch(myPresenceNotifierProvider);
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,

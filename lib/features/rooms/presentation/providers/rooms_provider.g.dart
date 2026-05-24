@@ -195,5 +195,25 @@ class _RoomByCodeNotifierProviderElement
   String get code => (origin as RoomByCodeNotifierProvider).code;
 }
 
+String _$publicRoomsNotifierHash() =>
+    r'66da5415fa5c86c9a20cda37bdb996b0fb70ca16';
+
+/// See also [PublicRoomsNotifier].
+@ProviderFor(PublicRoomsNotifier)
+final publicRoomsNotifierProvider =
+    AutoDisposeStreamNotifierProvider<
+      PublicRoomsNotifier,
+      List<RoomModel>
+    >.internal(
+      PublicRoomsNotifier.new,
+      name: r'publicRoomsNotifierProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$publicRoomsNotifierHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$PublicRoomsNotifier = AutoDisposeStreamNotifier<List<RoomModel>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

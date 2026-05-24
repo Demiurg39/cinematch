@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../domain/partner_model.dart';
 import '../providers/partner_analytics_provider.dart';
 import '../providers/partners_provider.dart';
@@ -40,7 +41,17 @@ class PartnerDashboard extends ConsumerWidget {
             trailing: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'unlink') {
-                  ref.read(partnersNotifierProvider.notifier).remove(partner.partnerId);
+                  showConfirmDialog(
+                    context: context,
+                    title: 'Unlink Partner',
+                    message: 'Are you sure you want to unlink from ${partner.partnerUsername}? This will remove all shared data.',
+                    confirmLabel: 'Unlink',
+                    confirmColor: Colors.red,
+                  ).then((confirmed) {
+                    if (confirmed && context.mounted) {
+                      ref.read(partnersNotifierProvider.notifier).remove(partner.partnerId);
+                    }
+                  });
                 }
               },
               itemBuilder: (context) => [
@@ -62,7 +73,7 @@ class PartnerDashboard extends ConsumerWidget {
         // Genre Harmony Map
         Text('Genre Harmony', style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),
-        _GenreHarmonySection(partnerLinkId: partner.id),
+        _GenreHarmonySection(partnerLinkId: partner.id, partnerId: partner.partnerId),
         const SizedBox(height: 24),
 
         // Together History list
@@ -131,11 +142,12 @@ class _AnalyticsRow extends ConsumerWidget {
 
 class _GenreHarmonySection extends ConsumerWidget {
   final String partnerLinkId;
-  const _GenreHarmonySection({required this.partnerLinkId});
+  final String partnerId;
+  const _GenreHarmonySection({required this.partnerLinkId, required this.partnerId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final harmonyAsync = ref.watch(genreHarmonyProvider(partnerLinkId));
+    final harmonyAsync = ref.watch(genreHarmonyProvider(partnerLinkId, partnerId: partnerId));
 
     return harmonyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -146,21 +158,21 @@ class _GenreHarmonySection extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodyMedium),
         ),
       ),
-      data: (weights) {
-        if (weights.isEmpty) {
+      data: (data) {
+        if (data.isEmpty) {
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Add movies to your Together History to see genre insights',
+              child: Text('Swipe and watch movies together to see genre insights',
                   style: Theme.of(context).textTheme.bodyMedium),
             ),
           );
         }
         return Column(
           children: [
-            Center(child: GenreRadarChart(genreWeights: weights)),
+            Center(child: GenreRadarChart(data: data)),
             const SizedBox(height: 8),
-            RadarChartLegend(genreWeights: weights),
+            RadarChartLegend(data: data),
           ],
         );
       },

@@ -8,8 +8,8 @@ CREATE EXTENSION IF NOT EXISTS "pg_net";
 -- Define Enums
 CREATE TYPE swipe_direction AS ENUM ('like', 'dislike', 'maybe', 'veto');
 CREATE TYPE watchlist_status AS ENUM ('watching', 'plan_to_watch', 'watched', 'dropped');
-CREATE TYPE room_status AS ENUM ('active', 'archived', 'completed');
-CREATE TYPE match_threshold AS ENUM ('unanimous', 'majority', 'half');
+CREATE TYPE room_status AS ENUM ('lobby', 'active', 'voting', 'matched', 'revealed', 'archived', 'completed');
+CREATE TYPE match_threshold AS ENUM ('unanimous', 'majority', 'half', 'matched');
 CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
 
 -- =============================================================================
@@ -57,8 +57,9 @@ CREATE TABLE public.rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     created_by UUID REFERENCES public.users(id),
-    status room_status DEFAULT 'active',
+    status room_status DEFAULT 'lobby',
     match_threshold match_threshold DEFAULT 'unanimous',
+    is_private BOOLEAN DEFAULT false,
     timer_end_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -134,6 +135,27 @@ CREATE TABLE public.friendships (
     status friendship_status DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- User Presence (online/offline tracking)
+CREATE TABLE public.user_presence (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    is_online BOOLEAN NOT NULL DEFAULT false,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Room auto-cleanup: cleanup members/swipes/vetoes when room is archived/completed
+CREATE OR REPLACE FUNCTION public.cleanup_room_on_complete()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status IN ('archived', 'completed') AND OLD.status NOT IN ('archived', 'completed') THEN
+        DELETE FROM public.room_vetoes WHERE room_id = NEW.id;
+        DELETE FROM public.swipes WHERE room_id = NEW.id;
+        DELETE FROM public.room_members WHERE room_id = NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_room_complete AFTER UPDATE ON public.rooms FOR EACH ROW EXECUTE FUNCTION public.cleanup_room_on_complete();
 
 -- Clusters (ML centroids)
 CREATE TABLE public.clusters (
@@ -238,6 +260,7 @@ ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.partners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_presence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clusters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_cluster_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.partner_watch_history ENABLE ROW LEVEL SECURITY;
@@ -380,6 +403,10 @@ CREATE POLICY "Authenticated users can view clusters" ON public.clusters FOR SEL
 CREATE POLICY "Users can view own cluster assignments" ON public.user_cluster_assignments FOR SELECT
     USING (auth.uid() = user_id);
 
+-- User Presence: anyone authenticated can view, users update own
+CREATE POLICY "Presence viewable by authenticated" ON public.user_presence FOR SELECT USING (true);
+CREATE POLICY "Users update own presence" ON public.user_presence FOR ALL USING (auth.uid() = user_id);
+
 -- =============================================================================
 -- SUPABASE STORAGE BUCKETS
 -- =============================================================================
@@ -413,7 +440,9 @@ CREATE POLICY "Authenticated users can upload posters" ON storage.objects
 -- REALTIME CONFIG
 -- =============================================================================
 
--- Enable realtime for match notifications
+-- Enable realtime for match notifications, presence, and rooms
 ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.swipes;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.partner_watch_history;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.room_members;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_presence;

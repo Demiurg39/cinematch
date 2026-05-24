@@ -6,12 +6,14 @@ class MovieCardContent extends StatelessWidget {
   final MovieModel movie;
   final bool showDetails;
   final bool isMlRecommendation;
+  final bool partnerLiked;
 
   const MovieCardContent({
     super.key,
     required this.movie,
     this.showDetails = true,
     this.isMlRecommendation = false,
+    this.partnerLiked = false,
   });
 
   @override
@@ -90,6 +92,41 @@ class MovieCardContent extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Partner liked badge
+            if (partnerLiked)
+              Positioned(
+                top: 16,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.favorite, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Partner liked',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],

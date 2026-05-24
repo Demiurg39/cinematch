@@ -12,15 +12,14 @@ class SwipeRepository {
     required String userId,
     required MovieModel movie,
     required SwipeAction action,
+    String? roomId,
   }) async {
-    // If movie.id is empty (from TMDB), lookup by tmdbId first
     String? movieDbId = movie.id.isEmpty ? null : movie.id;
     if (movieDbId == null) {
       final cached = await _client.from('movies').select('id').eq('tmdb_id', movie.tmdbId).maybeSingle();
       movieDbId = cached?['id'] as String?;
     }
 
-    // If movie still not in DB, insert it first
     if (movieDbId == null) {
       final now = DateTime.now().toIso8601String();
       final inserted = await _client.from('movies').upsert({
@@ -38,17 +37,74 @@ class SwipeRepository {
       movieDbId = inserted?['id'] as String?;
     }
 
-    if (movieDbId == null) return; // Still can't record
+    if (movieDbId == null) return;
 
-    await _client.from('swipes').insert({
+    final insert = {
       'user_id': userId,
       'movie_id': movieDbId,
       'direction': action.name,
-    });
+    };
+    if (roomId != null) insert['room_id'] = roomId;
+
+    await _client.from('swipes').insert(insert);
+  }
+
+  Future<bool> checkUnanimousMatch(String roomId, String movieDbId) async {
+    final participants = await _client.from('room_members').select('user_id')
+        .eq('room_id', roomId);
+
+    if (participants.isEmpty) return false;
+
+    final likes = await _client.from('swipes').select('user_id')
+        .eq('movie_id', movieDbId)
+        .eq('room_id', roomId)
+        .eq('direction', 'like');
+
+    final likedUserIds = likes.map((r) => r['user_id'] as String).toSet();
+    final allLiked = participants.every((p) => likedUserIds.contains(p['user_id'] as String));
+    return likedUserIds.length >= 2 && allLiked;
+  }
+
+  Future<Set<int>> getPartnerLikedTmdbIds(String partnerId, String roomId) async {
+    final swipes = await _client.from('swipes').select('movie_id')
+        .eq('user_id', partnerId)
+        .eq('room_id', roomId)
+        .eq('direction', 'like');
+
+    if (swipes.isEmpty) return {};
+
+    final movieIds = swipes.map((r) => r['movie_id'] as String).toList();
+    final movies = await _client.from('movies').select('tmdb_id')
+        .inFilter('id', movieIds);
+
+    return movies.map((r) => r['tmdb_id'] as int).toSet();
+  }
+
+  Future<Set<String>> getSharedMutualMatches(String roomId) async {
+    final members = await _client.from('room_members').select('user_id')
+        .eq('room_id', roomId);
+    if (members.length < 2) return {};
+
+    final memberUserIds = members.map((r) => r['user_id'] as String).toList();
+
+    final allSwipes = await _client.from('swipes').select('user_id, movie_id')
+        .eq('room_id', roomId)
+        .eq('direction', 'like');
+
+    final movieLikeCounts = <String, int>{};
+    for (final swipe in allSwipes) {
+      final movieId = swipe['movie_id'] as String;
+      movieLikeCounts[movieId] = (movieLikeCounts[movieId] ?? 0) + 1;
+    }
+
+    final threshold = members.length >= 3 ? 2 : 2;
+    return movieLikeCounts.entries
+        .where((e) => e.value >= threshold)
+        .map((e) => e.key)
+        .toSet();
   }
 
   Future<List<Map<String, dynamic>>> getSwipeActionsForMovie(int tmdbId) async {
-    // First find movie uuid by tmdb_id
     final movie = await _client.from('movies').select('id').eq('tmdb_id', tmdbId).maybeSingle();
     if (movie == null) return [];
 

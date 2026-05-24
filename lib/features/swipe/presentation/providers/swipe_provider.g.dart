@@ -23,7 +23,7 @@ final swipeDeckStateProvider = AutoDisposeProvider<SwipeDeckState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SwipeDeckStateRef = AutoDisposeProviderRef<SwipeDeckState>;
-String _$swipeDeckNotifierHash() => r'd60777a6004fa37781133469aa58708552c49d00';
+String _$swipeDeckNotifierHash() => r'95ce7ffd49bd83c9ca25bdaa17b5fdd27e03728e';
 
 /// See also [SwipeDeckNotifier].
 @ProviderFor(SwipeDeckNotifier)
@@ -40,7 +40,7 @@ final swipeDeckNotifierProvider =
 
 typedef _$SwipeDeckNotifier = AutoDisposeNotifier<SwipeDeckState>;
 String _$popularDeckNotifierHash() =>
-    r'b45397a8ea29fb1c431742f8218b01a431925dc1';
+    r'c648f9626e79fae1b1b07e0ff9f33285d2b3ae1c';
 
 /// See also [PopularDeckNotifier].
 @ProviderFor(PopularDeckNotifier)

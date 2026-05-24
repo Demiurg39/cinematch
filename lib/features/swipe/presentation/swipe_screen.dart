@@ -5,15 +5,19 @@ import 'providers/genre_filter_provider.dart';
 import 'widgets/swipe_card.dart';
 import 'widgets/swipe_indicators.dart';
 import 'widgets/movie_card_content.dart';
-import 'widgets/match_celebration.dart';
 import 'widgets/genre_filter_sheet.dart';
 import '../../movies/domain/movie_model.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../swipe/domain/swipe_action.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../rooms/presentation/providers/room_provider.dart';
+import '../../rooms/domain/room_model.dart';
+import '../../rooms/presentation/shared_pool_review_screen.dart';
 
 class SwipeScreen extends ConsumerStatefulWidget {
-  const SwipeScreen({super.key});
+  final String? roomId;
+
+  const SwipeScreen({super.key, this.roomId});
 
   @override
   ConsumerState<SwipeScreen> createState() => _SwipeScreenState();
@@ -22,11 +26,25 @@ class SwipeScreen extends ConsumerStatefulWidget {
 class _SwipeScreenState extends ConsumerState<SwipeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _navigatedOnExpiry = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  void _navigateToSharedPool(String roomId) {
+    _navigatedOnExpiry = true;
+    Future.microtask(() {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SharedPoolReviewScreen(roomId: roomId),
+        ),
+      );
+    });
   }
 
   @override
@@ -37,6 +55,24 @@ class _SwipeScreenState extends ConsumerState<SwipeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Watch for room timer expiry in room mode — auto-navigate to shared pool
+    if (widget.roomId != null) {
+      ref.listen(activeRoomNotifierProvider(widget.roomId!), (prev, next) {
+        if (_navigatedOnExpiry) return;
+        final room = next.valueOrNull;
+        if (room == null) return;
+        if (room.status == RoomStatus.matched ||
+            room.status == RoomStatus.revealed) {
+          _navigateToSharedPool(widget.roomId!);
+        }
+        if (room.timerEndAt != null &&
+            room.timerEndAt!.isBefore(DateTime.now()) &&
+            room.status == RoomStatus.voting) {
+          _navigateToSharedPool(widget.roomId!);
+        }
+      });
+    }
+
     final genreFilter = ref.watch(genreFilterNotifierProvider);
     final selectedGenres = genreFilter['selectedGenres'] as List<int>;
 
@@ -188,10 +224,8 @@ class _PersonalizedTab extends ConsumerWidget {
     return _SwipeDeck(
       movies: deckState.movies,
       mlRecommendedTmdbIds: deckState.mlRecommendedTmdbIds,
+      partnerLikedTmdbIds: deckState.partnerLikedTmdbIds,
       onSwipe: (action, movie) {
-        if (action == SwipeAction.like) {
-          showMatchCelebration(context, movie);
-        }
         ref.read(swipeDeckNotifierProvider.notifier).onSwipe(action, movie);
       },
     );
@@ -216,10 +250,8 @@ class _PopularTab extends ConsumerWidget {
     return _SwipeDeck(
       movies: deckState.movies,
       mlRecommendedTmdbIds: deckState.mlRecommendedTmdbIds,
+      partnerLikedTmdbIds: deckState.partnerLikedTmdbIds,
       onSwipe: (action, movie) {
-        if (action == SwipeAction.like) {
-          showMatchCelebration(context, movie);
-        }
         ref.read(popularDeckNotifierProvider.notifier).onSwipe(action, movie);
       },
     );
@@ -369,11 +401,13 @@ class _EmptyState extends StatelessWidget {
 class _SwipeDeck extends StatelessWidget {
   final List<MovieModel> movies;
   final Set<int> mlRecommendedTmdbIds;
+  final Set<int> partnerLikedTmdbIds;
   final void Function(SwipeAction action, MovieModel movie) onSwipe;
 
   const _SwipeDeck({
     required this.movies,
     required this.mlRecommendedTmdbIds,
+    this.partnerLikedTmdbIds = const {},
     required this.onSwipe,
   });
 
@@ -401,6 +435,7 @@ class _SwipeDeck extends StatelessWidget {
                             movie: movies[1],
                             showDetails: false,
                             isMlRecommendation: mlRecommendedTmdbIds.contains(movies[1].tmdbId),
+                            partnerLiked: partnerLikedTmdbIds.contains(movies[1].tmdbId),
                           ),
                         ),
                       ),
@@ -419,6 +454,7 @@ class _SwipeDeck extends StatelessWidget {
                       child: MovieCardContent(
                         movie: movies[0],
                         isMlRecommendation: mlRecommendedTmdbIds.contains(movies[0].tmdbId),
+                        partnerLiked: partnerLikedTmdbIds.contains(movies[0].tmdbId),
                       ),
                     ),
                   ),

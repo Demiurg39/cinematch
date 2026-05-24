@@ -9,6 +9,8 @@ class RoomModel {
   final int matchThreshold;
   final DateTime createdAt;
   final List<String> participantIds;
+  final bool isPrivate;
+  final DateTime? timerEndAt;
 
   const RoomModel({
     required this.id,
@@ -19,6 +21,8 @@ class RoomModel {
     required this.matchThreshold,
     required this.createdAt,
     required this.participantIds,
+    this.isPrivate = false,
+    this.timerEndAt,
   });
 
   factory RoomModel.fromJson(Map<String, dynamic> json) {
@@ -36,6 +40,10 @@ class RoomModel {
       participantIds: (json['participant_ids'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList() ?? [],
+      isPrivate: json['is_private'] as bool? ?? false,
+      timerEndAt: json['timer_end_at'] != null
+          ? DateTime.parse(json['timer_end_at'] as String)
+          : null,
     );
   }
 
@@ -47,6 +55,8 @@ class RoomModel {
         'status': status.name,
         'match_threshold': matchThreshold,
         'created_at': createdAt.toIso8601String(),
+        'is_private': isPrivate,
+        if (timerEndAt != null) 'timer_end_at': timerEndAt!.toIso8601String(),
       };
 
   static int _parseThreshold(dynamic value) {
@@ -62,5 +72,15 @@ class RoomModel {
       }
     }
     return 2;
+  }
+
+  static String thresholdToDbValue(int threshold) {
+    switch (threshold) {
+      case 4: return 'unanimous';
+      case 3: return 'majority';
+      case 2: return 'half';
+      case 1: return 'matched';
+      default: return 'half';
+    }
   }
 }

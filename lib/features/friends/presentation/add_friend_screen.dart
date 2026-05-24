@@ -13,6 +13,7 @@ class AddFriendScreen extends ConsumerStatefulWidget {
 class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
   final _searchController = TextEditingController();
   bool _isSearching = false;
+  bool _isSubmitting = false;
   List<Map<String, dynamic>> _results = [];
   String? _error;
   bool _hasSearched = false;
@@ -178,7 +179,8 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
             ),
             title: Text(username),
             trailing: FilledButton.tonal(
-              onPressed: () async {
+              onPressed: _isSubmitting ? null : () async {
+                setState(() => _isSubmitting = true);
                 try {
                   await ref.read(friendsNotifierProvider.notifier).sendRequest(username);
                   if (mounted) {
@@ -192,9 +194,11 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
                       SnackBar(content: Text('Error: $e')),
                     );
                   }
+                } finally {
+                  if (mounted) setState(() => _isSubmitting = false);
                 }
               },
-              child: const Text('Add'),
+              child: Text(_isSubmitting ? 'Sending...' : 'Add'),
             ),
           ),
         );

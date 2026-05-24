@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../movies/domain/movie_model.dart';
 import '../../../movies/presentation/providers/movies_provider.dart';
 import '../../domain/swipe_action.dart';
+import '../../data/swipe_repository.dart';
 import 'match_provider.dart';
 import 'genre_filter_provider.dart';
 
@@ -20,11 +21,15 @@ SwipeDeckState swipeDeckState(SwipeDeckStateRef ref) {
 
 @riverpod
 class SwipeDeckNotifier extends _$SwipeDeckNotifier {
-  static const _initialLoadSize = 60; // Start with more movies
-  static const _prefetchThreshold = 45; // Prefetch when deck drops below this
+  static const _initialLoadSize = 60;
+  static const _prefetchThreshold = 45;
 
-  // Track page for infinite scroll per genre
   int _currentPage = 1;
+  String? _currentRoomId;
+
+  void setRoomId(String? roomId) {
+    _currentRoomId = roomId;
+  }
 
   @override
   SwipeDeckState build() {
@@ -165,11 +170,6 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
   Future<void> onSwipe(SwipeAction action, MovieModel movie) async {
     final currentDeck = state.movies;
 
-    if (action == SwipeAction.like) {
-      _checkForMatch(movie);
-    }
-
-    // Use tmdbId only - id is empty for TMDB movies and only gets set on cache insert
     final updatedDeck = currentDeck.where((m) => m.tmdbId != movie.tmdbId).toList();
     final updatedSeen = {...state.seenTmdbIds, movie.tmdbId};
 
@@ -178,6 +178,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
       seenTmdbIds: updatedSeen,
       isLoading: false,
       mlRecommendedTmdbIds: state.mlRecommendedTmdbIds.where((id) => id != movie.tmdbId).toSet(),
+      partnerLikedTmdbIds: state.partnerLikedTmdbIds,
     );
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -186,16 +187,44 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
             userId: userId,
             movie: movie,
             action: action,
+            roomId: _currentRoomId,
           ).catchError((_) {});
     }
 
-    // Only prefetch if deck is getting low - NOT on every swipe
+    if (action == SwipeAction.like) {
+      await _checkForMatch(movie);
+    }
+
     if (updatedDeck.length < _prefetchThreshold) {
       _loadMoreInBackground();
     }
   }
 
-  Future<void> _checkForMatch(MovieModel movie) async {}
+  void setPartnerLikedTmdbIds(Set<int> tmdbIds) {
+    state = SwipeDeckState(
+      movies: state.movies,
+      seenTmdbIds: state.seenTmdbIds,
+      isLoading: state.isLoading,
+      mlRecommendedTmdbIds: state.mlRecommendedTmdbIds,
+      partnerLikedTmdbIds: tmdbIds,
+    );
+  }
+
+  Future<bool> _checkForMatch(MovieModel movie) async {
+    if (_currentRoomId == null) return false;
+
+    final repo = ref.read(swipeRepositoryProvider);
+
+    String? movieDbId = movie.id.isEmpty ? null : movie.id;
+    if (movieDbId == null) {
+      final client = Supabase.instance.client;
+      final cached = await client.from('movies').select('id').eq('tmdb_id', movie.tmdbId).maybeSingle();
+      movieDbId = cached?['id'] as String?;
+    }
+    if (movieDbId == null) return false;
+
+    return repo.checkUnanimousMatch(_currentRoomId!, movieDbId);
+  }
 
   Future<void> _loadMoreInBackground() async {
     // Silently prefetch - don't change isLoading to avoid UI flicker
@@ -305,6 +334,7 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
           seenTmdbIds: newSeen,
           isLoading: false,
           mlRecommendedTmdbIds: {...state.mlRecommendedTmdbIds, ...newMlTmdbIds},
+          partnerLikedTmdbIds: state.partnerLikedTmdbIds,
         );
       }
     } catch (_) {
@@ -352,6 +382,11 @@ class SwipeDeckNotifier extends _$SwipeDeckNotifier {
 @riverpod
 class PopularDeckNotifier extends _$PopularDeckNotifier {
   int _currentPage = 1;
+  String? _currentRoomId;
+
+  void setRoomId(String? roomId) {
+    _currentRoomId = roomId;
+  }
 
   @override
   SwipeDeckState build() {
@@ -433,6 +468,7 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
       movies: updatedDeck,
       seenTmdbIds: updatedSeen,
       isLoading: false,
+      partnerLikedTmdbIds: state.partnerLikedTmdbIds,
     );
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -441,6 +477,7 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
         userId: userId,
         movie: movie,
         action: action,
+        roomId: _currentRoomId,
       ).catchError((_) {});
     }
 
@@ -485,6 +522,7 @@ class PopularDeckNotifier extends _$PopularDeckNotifier {
         movies: [...state.movies, ...newMovies],
         seenTmdbIds: newSeen,
         isLoading: false,
+        partnerLikedTmdbIds: state.partnerLikedTmdbIds,
       );
     } catch (_) {}
   }
@@ -505,11 +543,13 @@ class SwipeDeckState {
   final Set<int> seenTmdbIds;
   final bool isLoading;
   final Set<int> mlRecommendedTmdbIds;
+  final Set<int> partnerLikedTmdbIds;
 
   SwipeDeckState({
     required this.movies,
     required this.seenTmdbIds,
     required this.isLoading,
     this.mlRecommendedTmdbIds = const {},
+    this.partnerLikedTmdbIds = const {},
   });
 }
